@@ -78,11 +78,16 @@ export const addDomain = asyncHandler(async (req, res) => {
 // Verify Domain
 export const verifyDomain = asyncHandler(async (req, res) => {
   const { id:domainId } = req.params;
+  console.log(`Verifying domain with ID: ${domainId}`);
+  
 
   const domain = await Prisma.domain.findFirst({
     where: { id: domainId },
     include: { dnsRecords: true },
   });
+
+  console.log(`Found domain: ${domain}`);
+  
 
   if (!domain) throw new ApiError(404, "Domain not found");
 
