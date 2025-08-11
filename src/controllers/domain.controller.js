@@ -77,7 +77,7 @@ export const addDomain = asyncHandler(async (req, res) => {
 
 // Verify Domain
 export const verifyDomain = asyncHandler(async (req, res) => {
-  const { id:domainId } = req.params;
+  const { domainId} = req.params;
   console.log(`Verifying domain with ID: ${domainId}`);
   
 
