@@ -154,10 +154,10 @@ async function verifyDnsRecord(record) {
       const mxRecords = await dns.resolveMx(record.recordName);
       console.log(`MX Records for ${record.recordName}:`, mxRecords);  // Debugging output
 
-      // Validate that one of the MX records has the expected exchange value
+      // Adjust this if your expected value is "mail.primewebdev.in"
       const isValid = mxRecords.some((mx) => {
         console.log(`Checking MX record: ${mx.exchange} against ${record.recordValue}`);
-        return mx.exchange === record.recordValue;
+        return mx.exchange === record.recordValue || mx.exchange === `mail.${record.recordName}`;
       });
 
       if (!isValid) {
