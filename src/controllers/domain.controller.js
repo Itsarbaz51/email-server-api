@@ -149,11 +149,12 @@ export const verifyDomain = asyncHandler(async (req, res) => {
 // DNS record check
 async function verifyDnsRecord(record) {
   try {
-    const result = await dns.resolve(record.recordName, record.recordType);
-
     if (record.recordType === "MX") {
-      return result.some((r) => r.exchange === record.recordValue);
+      const mxRecords = await dns.resolveMx(record.recordName);
+      return mxRecords.some((mx) => mx.exchange === record.recordValue);
     }
+
+    const result = await dns.resolve(record.recordName, record.recordType);
 
     if (record.recordType === "TXT") {
       const flattened = result
@@ -163,7 +164,8 @@ async function verifyDnsRecord(record) {
     }
 
     return result.includes(record.recordValue);
-  } catch {
+  } catch (error) {
+    console.error(`Error verifying DNS record: ${error.message}`);
     return false;
   }
 }
