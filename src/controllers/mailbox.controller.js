@@ -32,7 +32,7 @@ if (!domain || domain.userId !== userId) {
 }
 
 // Check domain verified
-if (!domain.verified) {
+if (!domain.status === "VERIFIED") {
   return ApiError.send(res, 400, "Domain must be verified before creating mailboxes");
 }
 
