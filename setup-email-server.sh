@@ -74,7 +74,7 @@ sudo mv /tmp/phpMyAdmin-*-all-languages/* $PHPMYADMIN_DIR
 sudo rm -rf /tmp/phpmyadmin.zip /tmp/phpMyAdmin-*-all-languages
 
 # Replace YOUR.IP.HERE with your real IP address
-ALLOWED_IP="YOUR.IP.HERE"
+ALLOWED_IP="13.203.241.137"
 
 # Configure Nginx for API
 echo "⚙️ Setting up Nginx for API..."
@@ -145,7 +145,7 @@ fi
 # Setup Project
 if [ ! -d "$PROJECT_DIR" ]; then
     echo "📂 Cloning project..."
-    sudo git clone https://github.com/azunisoftware18/email-server-api.git $PROJECT_DIR
+    sudo git clone https://github.com/itsarbaz51/email-server-api.git $PROJECT_DIR
 fi
 
 cd $PROJECT_DIR
