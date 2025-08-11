@@ -30,7 +30,7 @@ const requireAuth = asyncHandler(async (req, res, next) => {
     // Otherwise try mailbox
     const mailbox = await Prisma.mailbox.findUnique({ where: { id: decoded.id }, select: { id: true, emailAddress: true } });
     if (mailbox) {
-      req.user = { id: mailbox.id, email: mailbox.emailAddress, role: "USER", model: "MAILBOX" };
+      req.mailbox = { id: mailbox.id, email: mailbox.emailAddress, role: "USER", model: "MAILBOX" };
       return next();
     }
 
