@@ -98,7 +98,7 @@ export const createOrRenewSubscription = asyncHandler(async (req, res) => {
     maxReceivedEmails: adjustedLimits.maxReceivedEmails,
     allowedStorageMB: adjustedLimits.allowedStorageMB,
     storageUsedMB,
-    paymentProviders: paymentProvider || 'RAZORPAY',
+    paymentProvider: paymentProvider || 'RAZORPAY',
     paymentStatus: paymentStatus || "PENDING",
     paymentId: paymentId || null,
     razorpayOrderId: razorpayOrderId || null,
