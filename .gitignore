@@ -1,0 +1,8 @@
+node_modules
+npm-debug.log
+.env
+
+email-server-host.pem
+migrations
+README.md
+email-server-api.pem

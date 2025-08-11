@@ -1,0 +1,56 @@
+version: '3.8'
+
+networks:
+  proxy:
+    external: true
+
+services:
+  nginx-proxy:
+    image: jwilder/nginx-proxy:alpine
+    container_name: nginx-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./certs:/etc/nginx/certs:ro
+      - ./vhost.d:/etc/nginx/vhost.d
+      - ./html:/usr/share/nginx/html
+    networks:
+      - proxy
+
+  letsencrypt:
+    image: nginxproxy/acme-companion
+    container_name: letsencrypt
+    restart: unless-stopped
+    environment:
+      - DEFAULT_EMAIL=${LETSENCRYPT_EMAIL}
+    depends_on:
+      - nginx-proxy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./certs:/etc/nginx/certs:rw
+      - ./vhost.d:/etc/nginx/vhost.d
+      - ./html:/usr/share/nginx/html
+    networks:
+      - proxy
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: email-server-app
+    env_file: .env
+    environment:
+      - NODE_ENV=production
+      - VIRTUAL_HOST=${DOMAIN}
+      - LETSENCRYPT_HOST=${DOMAIN}
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
+    expose:
+      - "3000"
+    depends_on:
+      - nginx-proxy
+      - letsencrypt
+    networks:
+      - proxy

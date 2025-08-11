@@ -1,0 +1,292 @@
+import Prisma from "../db/db.js";
+import jwt from "jsonwebtoken";
+import { ApiError } from "../utils/ApiError.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
+import {
+  comparePassword,
+  generateAccessToken,
+  generateRefreshToken,
+  hashPassword,
+} from "../utils/lib.js";
+
+const isProduction = process.env.NODE_ENV === "production";
+
+// set jwt token on cookies
+const setAuthCookies = (res, accessToken, refreshToken) => {
+  const cookieOptions = {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: "Lax",
+    path: "/",
+  };
+
+  // Access Token - 7 days
+  res.cookie("accessToken", accessToken, {
+    ...cookieOptions,
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+
+  // Refresh Token - 90 days
+  res.cookie("refreshToken", refreshToken, {
+    ...cookieOptions,
+    maxAge: 90 * 24 * 60 * 60 * 1000,
+  });
+};
+
+// signup on role base protected middleware by super-admin and admin role base 
+const signupAdmin = asyncHandler(async (req, res) => {
+  const { name, email, password, role } = req.body;
+
+  if (![name, email, password].every((v) => v && String(v).trim().length > 0)) {
+    return ApiError.send(res, 400, "All fields are required");
+  }
+
+  const existingUser = await Prisma.user.findUnique({ where: { email } });
+  if (existingUser) return ApiError.send(res, 409, "Email already registered");
+
+  const hashedPassword = await hashPassword(password);
+
+  // Accept only allowed admin roles
+  const finalRole = role === "SUPER_ADMIN" ? "SUPER_ADMIN" : "ADMIN";
+
+  const created = await Prisma.user.create({
+    data: {
+      name,
+      email,
+      password: hashedPassword,
+      role: finalRole,
+    },
+  });
+
+  if (!created) return ApiError.send(res, 500, "User creation failed");
+
+  return res
+    .status(201)
+    .json(new ApiResponse(201, "Admin registered successfully", { id: created.id }));
+});
+
+// sigup public route admin
+const signup = asyncHandler(async (req, res) => {
+  const { name, email, password } = req.body;
+  if (![name, email, password].every((v) => v && String(v).trim().length > 0)) {
+    return ApiError.send(res, 400, "All fields are required");
+  }
+
+  const exists = await Prisma.user.findUnique({ where: { email } });
+  if (exists) return ApiError.send(res, 409, "Email already registered");
+
+  const hashed = await hashPassword(password);
+  const user = await Prisma.user.create({
+    data: { name, email, password: hashed, role: "USER" },
+    select: { id: true, name: true, email: true, role: true, createdAt: true },
+  });
+
+  return res.status(201).json(new ApiResponse(201, "Registered successfully", { user }));
+});
+
+// login
+const login = asyncHandler(async (req, res) => {
+  let { email, password } = req.body;
+  if (!email || !password) return ApiError.send(res, 400, "Email and password are required");
+  // Try User table
+  const user = await Prisma.user.findUnique({
+    where: { email },
+    select: { id: true, email: true, password: true, role: true, name: true },
+  });
+
+  if (user) {
+    const isMatch = await comparePassword(password, user.password);
+    if (!isMatch) return ApiError.send(res, 401, "Invalid credentials");
+
+    const accessToken = generateAccessToken(user.id, user.email, user.role);
+    const refreshToken = generateRefreshToken(user.id, user.email, user.role);
+    setAuthCookies(res, accessToken, refreshToken);
+
+    const { password: _, ...userSafe } = user;
+    return res.status(200).json(new ApiResponse(200, "Login successful", {
+      user: userSafe,
+      accessTokenExpiresIn: process.env.ACCESS_TOKEN_EXPIRY || "7d",
+    }));
+  }
+
+  // Else try mailbox login (if using mailbox model)
+  // NOTE: adapt the mailbox fields to your DB (schema uses Mailbox.emailAddress)
+  const mailbox = await Prisma.mailbox.findFirst({
+    where: { emailAddress: email.toLowerCase() },
+    select: { id: true, emailAddress: true, password: true, domainId: true },
+  });
+
+  if (mailbox) {
+    const isMatch = await comparePassword(password, mailbox.password);
+    if (!isMatch) return ApiError.send(res, 401, "Invalid credentials");
+
+    const accessToken = generateAccessToken(mailbox.id, mailbox.emailAddress, "USER");
+    const refreshToken = generateRefreshToken(mailbox.id, mailbox.emailAddress, "USER");
+    setAuthCookies(res, accessToken, refreshToken);
+
+    return res.status(200).json(new ApiResponse(200, "Mailbox login successful", {
+      mailbox: { id: mailbox.id, address: mailbox.emailAddress, domainId: mailbox.domainId },
+      accessTokenExpiresIn: process.env.ACCESS_TOKEN_EXPIRY || "7d",
+    }));
+  }
+
+  return ApiError.send(res, 404, "User or mailbox not found");
+});
+
+// refreshAccessToken generate
+const refreshAccessToken = asyncHandler(async (req, res) => {
+  const token = req.cookies?.refreshToken || req.body?.refreshToken;
+  if (!token) return ApiError.send(res, 401, "Refresh token missing");
+
+  try {
+    const decoded = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET);
+
+    let newAccessToken;
+    if (decoded.role === "ADMIN" || decoded.role === "SUPER_ADMIN" || decoded.role === "USER") {
+      // If role corresponds to User model
+      const user = await Prisma.user.findUnique({
+        where: { id: decoded.id },
+        select: { id: true, email: true, role: true },
+      });
+
+      if (!user) return ApiError.send(res, 401, "User not found");
+      newAccessToken = generateAccessToken(user.id, user.email, user.role);
+    } else {
+      // fallback: check mailbox by id (if refresh token was issued for mailbox)
+      const mailbox = await Prisma.mailbox.findUnique({
+        where: { id: decoded.id },
+        select: { id: true, emailAddress: true },
+      });
+      if (!mailbox) return ApiError.send(res, 401, "Mailbox not found");
+      newAccessToken = generateAccessToken(mailbox.id, mailbox.emailAddress, "USER");
+    }
+
+    res.cookie("accessToken", newAccessToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: "Lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    return res.status(200).json(new ApiResponse(200, "Access token refreshed", {
+      accessToken: newAccessToken,
+      expiresIn: process.env.ACCESS_TOKEN_EXPIRY || "7d",
+    }));
+  } catch (err) {
+    return ApiError.send(res, 401, "Invalid or expired refresh token");
+  }
+});
+
+// logout
+const logout = asyncHandler(async (req, res) => {
+  res.clearCookie("accessToken", { path: "/" });
+  res.clearCookie("refreshToken", { path: "/" });
+  return res.status(200).json(new ApiResponse(200, "Logged out successfully"));
+});
+
+// get single
+const me = asyncHandler(async (req, res) => {
+  if (!req.user) return ApiError.send(res, 401, "Not authenticated");
+
+  // If req.user.type === "mailbox" vs "user" depends on middleware implementation
+  if (req.user.model === "USER") {
+    const user = await Prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { id: true, name: true, email: true, role: true, createdAt: true },
+    });
+    return res.status(200).json(new ApiResponse(200, "OK", { user }));
+  } else {
+    const mailbox = await Prisma.mailbox.findUnique({
+      where: { id: req.user.id },
+      select: { id: true, emailAddress: true, domainId: true, lastLoginAt: true },
+    });
+    return res.status(200).json(new ApiResponse(200, "OK", { mailbox }));
+  }
+});
+
+// change pass
+const changePassword = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!req.user) return ApiError.send(res, 401, "Not authenticated");
+  if (!currentPassword || !newPassword) return ApiError.send(res, 400, "Both passwords are required");
+
+  // If user model
+  if (req.user.model === "USER") {
+    const user = await Prisma.user.findUnique({ where: { id: req.user.id }, select: { password: true } });
+    if (!user) return ApiError.send(res, 404, "User not found");
+
+    const ok = await comparePassword(currentPassword, user.password);
+    if (!ok) return ApiError.send(res, 401, "Current password is incorrect");
+
+    const hashed = await hashPassword(newPassword);
+    await Prisma.user.update({ where: { id: req.user.id }, data: { password: hashed } });
+
+    return res.status(200).json(new ApiResponse(200, "Password changed successfully"));
+  } else {
+    // mailbox change password
+    const mailbox = await Prisma.mailbox.findUnique({ where: { id: req.user.id }, select: { password: true } });
+    if (!mailbox) return ApiError.send(res, 404, "Mailbox not found");
+
+    const ok = await comparePassword(currentPassword, mailbox.password);
+    if (!ok) return ApiError.send(res, 401, "Current password is incorrect");
+
+    const hashed = await hashPassword(newPassword);
+    await Prisma.mailbox.update({ where: { id: req.user.id }, data: { password: hashed } });
+
+    return res.status(200).json(new ApiResponse(200, "Password changed successfully"));
+  }
+});
+
+// forgot pass
+const forgotPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  if (!email) return ApiError.send(res, 400, "Email is required");
+
+  const user = await Prisma.user.findUnique({ where: { email } });
+  if (!user) return ApiError.send(res, 404, "User not found");
+
+  // Create a short lived token (e.g., 1 hour)
+  const token = jwt.sign({ id: user.id, purpose: "password_reset" }, process.env.RESET_TOKEN_SECRET, {
+    expiresIn: "1h",
+  });
+
+  // TODO: send email with link in real app
+  const resetUrl = `${process.env.FRONTEND_URL || "http://localhost:3000"}/reset-password?token=${token}`;
+  console.log("Password reset link (send via email):", resetUrl);
+
+  return res.status(200).json(new ApiResponse(200, "Password reset link generated (check logs)", { resetUrl }));
+});
+
+// reset pass
+const resetPassword = asyncHandler(async (req, res) => {
+  const { token, newPassword } = req.body;
+  if (!token || !newPassword) return ApiError.send(res, 400, "Token and new password are required");
+
+  try {
+    const decoded = jwt.verify(token, process.env.RESET_TOKEN_SECRET);
+    if (decoded.purpose !== "password_reset") return ApiError.send(res, 400, "Invalid reset token");
+
+    const user = await Prisma.user.findUnique({ where: { id: decoded.id } });
+    if (!user) return ApiError.send(res, 404, "User not found");
+
+    const hashed = await hashPassword(newPassword);
+    await Prisma.user.update({ where: { id: user.id }, data: { password: hashed } });
+
+    return res.status(200).json(new ApiResponse(200, "Password reset successfully"));
+  } catch (err) {
+    return ApiError.send(res, 400, "Invalid or expired token");
+  }
+});
+
+export {
+  signupAdmin,
+  signup,
+  login,
+  refreshAccessToken,
+  logout,
+  me,
+  changePassword,
+  forgotPassword,
+  resetPassword,
+};

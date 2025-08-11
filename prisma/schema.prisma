@@ -1,0 +1,205 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  USER
+}
+
+enum SubscriptionPlan {
+  FREE
+  BASIC
+  PREMIUM
+}
+
+enum DomainStatus {
+  PENDING
+  VERIFIED
+  FAILED
+}
+
+enum MailboxStatus {
+  PENDING
+  VERIFIED
+  ACTIVE
+  SUSPENDED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
+model User {
+  id             String        @id @default(cuid())
+  email          String        @unique
+  password       String
+  name           String
+  role           UserRole      @default(USER)
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  // Relations
+  subscriptions  Subscription[]
+  domains        Domain[]
+  mailboxes      Mailbox[]
+  sentEmails     SentEmail[]
+  receivedEmails ReceivedEmail[]
+  attachments    Attachment[]
+
+  @@map("users")
+}
+
+model Subscription {
+  id                String           @id @default(cuid())
+  userId            String
+  plan              SubscriptionPlan @default(FREE)
+  startDate         DateTime         @default(now())
+  endDate           DateTime?
+  isActive          Boolean          @default(true)
+  maxDomains        Int              @default(1)     // Max allowed domains
+  maxMailboxes      Int              @default(1)     // Max allowed mailboxes
+  maxStorageMB      Int              @default(1024)  // Account total limit (1 GB for FREE)
+  usedStorageMB     Int              @default(0)     // Current usage total
+  trialUsed         Boolean          @default(false) // Flag if trial already used
+  razorpayOrderId   String?          // Razorpay Order ID
+  razorpayPaymentId String?          // Razorpay Payment ID
+  razorpayStatus    PaymentStatus?   @default(PENDING)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+model Domain {
+  id                String       @id @default(cuid())
+  name              String       @unique
+  userId            String
+  status            DomainStatus @default(PENDING)
+  dkimEnabled       Boolean      @default(false)
+  dkimTokens        String       @default("[]") // JSON array of DKIM tokens
+  verificationToken String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mailboxes         Mailbox[]
+  dnsRecords        DNSRecord[]
+
+  @@map("domains")
+}
+
+model DNSRecord {
+  id          String   @id @default(cuid())
+  domainId    String
+  recordType  String
+  recordName  String
+  recordValue String
+  ttl         Int      @default(300)
+  isVerified  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  domain      Domain   @relation(fields: [domainId], references: [id], onDelete: Cascade)
+
+  @@map("dns_records")
+}
+
+model Mailbox {
+  id             String        @id @default(cuid())
+  name           String
+  emailAddress   String        @unique
+  userId         String
+  domainId       String
+  status         MailboxStatus @default(PENDING)
+  isActive       Boolean       @default(true)
+  usedStorageMB  Int           @default(0) // Usage of this mailbox only
+  lastLoginAt    DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  domain         Domain        @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  sentEmails     SentEmail[]
+  receivedEmails ReceivedEmail[]
+  attachments    Attachment[]
+
+  @@map("mailboxes")
+}
+
+model SentEmail {
+  id         String   @id @default(cuid())
+  mailboxId  String
+  userId     String
+  toEmail    String
+  subject    String
+  body       String
+  messageId  String?
+  status     String   @default("SENT") // SENT, FAILED, BOUNCED
+  sentAt     DateTime @default(now())
+
+  mailbox    Mailbox  @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sent_emails")
+}
+
+model ReceivedEmail {
+  id         String   @id @default(cuid())
+  mailboxId  String
+  userId     String
+  fromEmail  String
+  subject    String
+  body       String
+  receivedAt DateTime @default(now())
+
+  mailbox    Mailbox  @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("received_emails")
+}
+
+model Attachment {
+  id          String   @id @default(cuid())
+  mailboxId   String
+  userId      String
+  emailId     String?  // Optional link to SentEmail or ReceivedEmail
+  fileName    String
+  fileSizeKB  Int
+  mimeType    String
+  s3Key       String   // S3 object path
+  s3Bucket    String
+  createdAt   DateTime @default(now())
+
+  mailbox     Mailbox  @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("attachments")
+}
+
+model SystemConfig {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_configs")
+}
+
+
+
+
