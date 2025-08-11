@@ -7,8 +7,8 @@ const router = express.Router();
 router.use(requireAuth)
 
 router.post("/create-mailbox", verifySubscription("createMailbox"), createMailbox)
-router.put("update-mailbox", updateMailbox)
+router.put("/update-mailbox", updateMailbox)
 router.get("/get-mailbox", getMailboxes);
-router.delete("delete-mailbox", deleteMailbox)
+router.delete("/delete-mailbox", deleteMailbox)
 
 export default router;

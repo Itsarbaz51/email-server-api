@@ -7,9 +7,9 @@ import { verifySubscription } from "../middlewares/subscription.middleware.js";
 const router = express.Router();
 router.use(requireAuth)
 
-router.post('sent-email',verifySubscription("sendMail"), sendEmail)
-router.get('recived-email', receivedEmail)
-router.get('get-single-email', getSingleEmail)
-router.get('get-all-mails', getAllMails)
+router.post('/sent-email',verifySubscription("sendMail"), sendEmail)
+router.get('/recived-email', receivedEmail)
+router.get('/get-single-email', getSingleEmail)
+router.get('/get-all-mails', getAllMails)
 
 export default router;
