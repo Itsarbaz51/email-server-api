@@ -4,6 +4,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import Prisma from "../db/db.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import { validateDomain } from "../services/sendgridService.js";
 
 // Add Domain
 export const addDomain = asyncHandler(async (req, res) => {
@@ -100,6 +101,10 @@ export const verifyDomain = asyncHandler(async (req, res) => {
 
   // Step 2: SendGrid validation
   const sendgridRes = await validateDomain(domain.sendgridDomainId);
+
+  if (!sendgridRes) {
+    throw new ApiError(500, "Failed to validate domain with SendGrid");
+  }
 
   if (sendgridRes?.validation_results) {
     const { dkim1, dkim2, mail_cname } = sendgridRes.validation_results;
