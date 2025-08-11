@@ -2,15 +2,19 @@ import Prisma from "../db/db.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { comparePassword, hashPassword } from "../utils/lib.js";
 
 // Create Mailbox
 const createMailbox = asyncHandler(async (req, res) => {
-  const { name, address, domainId } = req.body;
+  const { name, address, domainId, password } = req.body;
   const userId = req.user.id;
 
-  if (!name || !address || !domainId) {
-    return ApiError.send(res, 400, "Name, address, and domainId are required");
+  if (!name || !address || !domainId || !password) {
+    return ApiError.send(res, 400, "Name, address, domainId, and password are required");
   }
+
+  // Hash password before storing
+  const hashedPassword = await hashPassword(password);
 
   // Fetch domain and validate ownership
   const domain = await Prisma.domain.findUnique({
@@ -22,11 +26,7 @@ const createMailbox = asyncHandler(async (req, res) => {
   }
 
   if (!domain.verified) {
-    return ApiError.send(
-      res,
-      400,
-      "Domain must be verified before creating mailboxes"
-    );
+    return ApiError.send(res, 400, "Domain must be verified before creating mailboxes");
   }
 
   // Normalize full email
@@ -55,6 +55,7 @@ const createMailbox = asyncHandler(async (req, res) => {
       emailAddress: fullEmail,
       userId,
       domainId,
+      password: hashedPassword,  // <-- Store hashed password here
       status: "PENDING",
       isActive: true,
       usedStorageMB: 0,
@@ -99,7 +100,7 @@ const getMailboxes = asyncHandler(async (req, res) => {
 // Update mailbox status or name
 const updateMailbox = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, status, isActive } = req.body;
+  const { name, status, isActive, password } = req.body;
   const userId = req.user.id;
 
   const mailbox = await Prisma.mailbox.findUnique({
@@ -111,9 +112,19 @@ const updateMailbox = asyncHandler(async (req, res) => {
     return ApiError.send(res, 403, "Unauthorized to update mailbox.");
   }
 
+  let hashedPassword;
+  if (mailbox.password && password) {
+    hashedPassword = await comparePassword(password, mailbox.password)
+  }
+
   const updated = await Prisma.mailbox.update({
     where: { id },
-    data: { name, status, isActive },
+    data: {
+      name,
+      status,
+      isActive,
+      ...(password ? { password: hashedPassword } : {}),
+    },
     include: { domain: { select: { name: true } } },
   });
 

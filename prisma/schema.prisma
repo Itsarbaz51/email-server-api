@@ -113,6 +113,7 @@ model Mailbox {
   id            String        @id @default(cuid())
   name          String
   emailAddress  String        @unique
+  password      String         
   userId        String
   domainId      String
   status        MailboxStatus @default(PENDING)
