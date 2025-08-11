@@ -66,7 +66,10 @@ PHP_FPM_SOCK=$(find /var/run/php -name "php*-fpm.sock" | head -n 1)
 
 # Optional: Install phpMyAdmin (with IP restriction)
 echo "📦 Installing phpMyAdmin with IP restriction..."
+# Remove existing phpMyAdmin to avoid "Directory not empty" errors
+sudo rm -rf $PHPMYADMIN_DIR
 sudo mkdir -p $PHPMYADMIN_DIR
+
 LATEST_URL=$(curl -s https://www.phpmyadmin.net/downloads/ | grep -oP 'https://files.phpmyadmin.net/phpMyAdmin/\d+\.\d+\.\d+/phpMyAdmin-\d+\.\d+\.\d+-all-languages.zip' | head -n 1)
 wget -O /tmp/phpmyadmin.zip "$LATEST_URL"
 sudo unzip -q /tmp/phpmyadmin.zip -d /tmp/
@@ -150,12 +153,6 @@ fi
 
 cd $PROJECT_DIR
 sudo npm install
-
-# Create .env file
-# echo "📄 Creating .env file..."
-# cat > .env <<EOL
-
-# EOL
 
 # Prisma migrate
 echo "📦 Running Prisma migrations..."
