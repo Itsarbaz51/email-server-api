@@ -6,10 +6,10 @@ import { verifySubscription } from "../middlewares/subscription.middleware.js";
 const router = Router();
 
 // auth required
-router.use(requireAuth);
+// router.use(requireAuth);
 
 // create/add domain 
-router.post("/add-domain", verifySubscription("createDomain"), addDomain);
+router.post("/add-domain",requireAuth, verifySubscription("createDomain"), addDomain);
 
 // verify domain with domain id
 router.get("/verify-domian/:domainId", verifyDomain);
