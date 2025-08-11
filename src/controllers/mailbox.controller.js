@@ -6,11 +6,11 @@ import { comparePassword, hashPassword } from "../utils/lib.js";
 
 // Create Mailbox
 const createMailbox = asyncHandler(async (req, res) => {
-  const { name, address, domainId, password } = req.body;
+  const { name, email, domainId, password } = req.body;
   const userId = req.user.id;
 
-  if (!name || !address || !domainId || !password) {
-    return ApiError.send(res, 400, "Name, address, domainId, and password are required");
+  if (!name || !email || !domainId || !password) {
+    return ApiError.send(res, 400, "Name, email, domainId, and password are required");
   }
 
   // Hash password before storing (assuming you have a hashPassword function)
@@ -46,14 +46,14 @@ if (!allDnsVerified) {
 }
 
 // Normalize full email
-const fullEmail = address.includes("@")
-  ? address.toLowerCase()
-  : `${address.toLowerCase()}@${domain.name}`;
+const fullEmail = email.includes("@")
+  ? email.toLowerCase()
+  : `${email.toLowerCase()}@${domain.name}`;
 
 const [localPart] = fullEmail.split("@");
 
 if (!/^[a-zA-Z0-9._%+-]+$/.test(localPart)) {
-  return ApiError.send(res, 400, "Invalid mailbox address format");
+  return ApiError.send(res, 400, "Invalid mailbox email format");
 }
 
 // Check for existing mailbox
