@@ -151,6 +151,8 @@ async function verifyDnsRecord(record) {
   try {
     if (record.recordType === "MX") {
       const mxRecords = await dns.resolveMx(record.recordName);
+      console.log(mxRecords);
+      
       return mxRecords.some((mx) => mx.exchange === record.recordValue);
     }
 
