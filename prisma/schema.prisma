@@ -77,7 +77,7 @@ model Subscription {
   allowedStorageMB  Int             @default(1024)
   storageUsedMB     Int             @default(0)
   paymentStatus     PaymentStatus   @default(PENDING)
-  paymentProvider   paymentProvider @default(RAZORPAY)
+  paymentProviders   paymentProvider @default(RAZORPAY)
   paymentId         String?
   razorpayOrderId   String?
   razorpayPaymentId String?

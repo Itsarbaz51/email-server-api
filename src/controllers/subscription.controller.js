@@ -43,8 +43,12 @@ const adjustLimitsForBillingCycle = (limits, billingCycle) => {
 };
 
 export const createOrRenewSubscription = asyncHandler(async (req, res) => {
-  let { plan, billingCycle, razorpayOrderId, razorpayPaymentId, razorpayStatus, paymentStatus, paymentId } = req.body;
+  let { plan, billingCycle, razorpayOrderId, razorpayPaymentId, razorpayStatus, paymentStatus, paymentId, paymentProvider } = req.body;
   const userId = req.user.id;
+
+  if (!razorpayOrderId || !razorpayPaymentId || !razorpayStatus || !paymentStatus || !paymentProvider || !paymentId) {
+    throw new ApiError(400, "All payment details are required");
+  }
 
   if (!plan || !billingCycle) {
     throw new ApiError(400, "Plan and billing cycle are required");
@@ -94,7 +98,7 @@ export const createOrRenewSubscription = asyncHandler(async (req, res) => {
     maxReceivedEmails: adjustedLimits.maxReceivedEmails,
     allowedStorageMB: adjustedLimits.allowedStorageMB,
     storageUsedMB,
-    paymentProvider: 'RAZORPAY', // hardcoded as per your schema default
+    paymentProviders: paymentProvider || 'RAZORPAY',
     paymentStatus: paymentStatus || "PENDING",
     paymentId: paymentId || null,
     razorpayOrderId: razorpayOrderId || null,
