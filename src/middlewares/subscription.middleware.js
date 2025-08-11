@@ -8,7 +8,7 @@ export const verifySubscription = (action) => {
 
     const user = await Prisma.user.findUnique({
       where: { id: userId },
-      include: { subscription: true },
+      include: { subscriptions: true },
     });
     if (!user) throw new ApiError(404, "User not found");
 
