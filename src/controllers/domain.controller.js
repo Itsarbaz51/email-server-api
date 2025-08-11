@@ -151,20 +151,21 @@ async function verifyDnsRecord(record) {
   try {
     if (record.recordType === "MX") {
       // Fetch MX records
-      const mxRecords = await dns.resolveMx(record.recordName);
-      console.log(`MX Records for ${record.recordName}:`, mxRecords);  // Debugging output
+    const mxRecords = await dns.resolveMx(record.recordName);
+    console.log(`MX Records for ${record.recordName}:`, mxRecords);
 
-      // Ensure we match the full exchange address properly
-      const isValid = mxRecords.some((mx) => {
-        console.log(`Checking MX record: ${mx.exchange} against ${record.recordValue}`);
-        // Now we allow for full domain matching
-        return mx.exchange === record.recordValue;
-      });
+    // Validate if any MX record matches the expected value
+    const isValid = mxRecords.some((mx) => {
+      console.log(`Checking MX record: ${mx.exchange} against ${record.recordValue}`);
+      // Ensure exact match of the exchange value
+      return mx.exchange === record.recordValue;
+    });
 
-      if (!isValid) {
-        console.log(`MX record validation failed for ${record.recordName}`);
-      }
-      return isValid;
+    if (!isValid) {
+      console.log(`MX record validation failed for ${record.recordName}`);
+    }
+
+    return isValid;
     }
 
     const result = await dns.resolve(record.recordName, record.recordType);
