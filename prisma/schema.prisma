@@ -61,17 +61,27 @@ model User {
 }
 
 model Subscription {
-  id                String   @id @default(cuid())
+  id                String        @id @default(cuid())
   plan              String // "FREE", "BASIC", "PREMIUM"
   billingCycle      String // "MONTHLY" or "YEARLY"
+  maxMailboxes      Int           @default(1)
+  maxDomains        Int           @default(1)
+  maxSentEmails     Int           @default(100) // New field: max sent emails allowed
+  maxReceivedEmails Int           @default(1000) // New field: max received emails allowed
+  allowedStorageMB  Int           @default(1024)
+  storageUsedMB     Int           @default(0)
+  paymentStatus     PaymentStatus @default(PENDING)
+  paymentMethod     String?
+  paymentProvider   String?
+  paymentId         String?
   razorpayOrderId   String?
   razorpayPaymentId String?
-  razorpayStatus    String? // "paid", "failed", etc.
-  startDate         DateTime @default(now())
+  razorpayStatus    String?
+  startDate         DateTime      @default(now())
   endDate           DateTime
-  isActive          Boolean  @default(true)
+  isActive          Boolean       @default(true)
   userId            String
-  user              User     @relation(fields: [userId], references: [id])
+  user              User          @relation(fields: [userId], references: [id])
 }
 
 model Domain {
@@ -113,7 +123,7 @@ model Mailbox {
   id            String        @id @default(cuid())
   name          String
   emailAddress  String        @unique
-  password      String         
+  password      String
   userId        String
   domainId      String
   status        MailboxStatus @default(PENDING)
@@ -170,7 +180,7 @@ model Attachment {
   userId     String
   emailId    String? // Optional link to SentEmail or ReceivedEmail
   fileName   String
-  fileSizeKB Int
+  fileSizeMB Int
   mimeType   String
   s3Key      String // S3 object path
   s3Bucket   String

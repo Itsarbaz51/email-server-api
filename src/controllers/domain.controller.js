@@ -9,23 +9,25 @@ import { validateDomain } from "../services/sendgridService.js";
 // Add Domain
 export const addDomain = asyncHandler(async (req, res) => {
   const { name } = req.body;
-  const userId = req.user.id;
+  const userId = req.user?.id;
 
   if (!name || !userId) {
     throw new ApiError(400, "Domain name and user ID required");
   }
 
-  // Check if domain already exists
-  const exists = await Prisma.domain.findUnique({
-    where: { name },
+  // Check if domain already exists (case insensitive)
+  const exists = await Prisma.domain.findFirst({
+    where: {
+      name: name.toLowerCase()
+    },
   });
 
   if (exists) {
     throw new ApiError(409, "Domain already exists");
   }
 
-  // Create domain in SendGrid
-  const sendgridData = await getSendGridDNSRecords(name);
+  // Create domain in SendGrid (make sure domain is lower case)
+  const sendgridData = await getSendGridDNSRecords(name.toLowerCase());
   if (!sendgridData?.id || !sendgridData?.dns) {
     throw new ApiError(500, "Failed to get DNS records from SendGrid");
   }
@@ -33,7 +35,7 @@ export const addDomain = asyncHandler(async (req, res) => {
   // Save domain in DB
   const createdDomain = await Prisma.domain.create({
     data: {
-      name,
+      name: name.toLowerCase(),
       userId,
       sendgridDomainId: sendgridData.id.toString(),
       status: "PENDING",
@@ -44,14 +46,14 @@ export const addDomain = asyncHandler(async (req, res) => {
 
   // Convert SendGrid DNS records into our schema format
   const sendgridDNS = Object.entries(sendgridData.dns).map(([_, value]) => ({
-    recordType: value?.type.toUpperCase() || "CNAME",
+    recordType: value?.type?.toUpperCase() || "CNAME",
     recordName: value?.host || "",
     recordValue: value?.data || "",
     ttl: value?.ttl || 3600,
     domainId: createdDomain.id,
   }));
 
-  // Add custom MX record for platform
+  // Add custom MX record for platform (use lower case recordName)
   const mxRecord = {
     recordType: "MX",
     recordName: "@",
@@ -62,7 +64,7 @@ export const addDomain = asyncHandler(async (req, res) => {
 
   const allRecords = [mxRecord, ...sendgridDNS];
 
-  // Save DNS records
+  // Save DNS records in bulk
   await Prisma.dNSRecord.createMany({
     data: allRecords,
   });
@@ -85,8 +87,6 @@ export const verifyDomain = asyncHandler(async (req, res) => {
     include: { dnsRecords: true },
   });
 
-  console.log(`Found domain: ${domain}`);
-
   if (!domain) throw new ApiError(404, "Domain not found");
 
   let allValid = true;
@@ -97,6 +97,7 @@ export const verifyDomain = asyncHandler(async (req, res) => {
     console.log(`Record ${record.recordName} (${record.recordType}): verified=${isValid}`);
     if (!isValid) allValid = false;
 
+    // Update individual DNS record verification status
     await Prisma.dNSRecord.update({
       where: { id: record.id },
       data: { isVerified: isValid },
@@ -146,46 +147,37 @@ export const verifyDomain = asyncHandler(async (req, res) => {
   );
 });
 
-// DNS record check
+// DNS record verification helper
 async function verifyDnsRecord(record) {
   try {
     if (record.recordType === "MX") {
-      // Fetch MX records
-    const mxRecords = await dns.resolveMx(record.recordName);
-    console.log(`MX Records for ${record.recordName}:`, mxRecords);
+      // Resolve MX records for the domain
+      const mxRecords = await dns.resolveMx(record.recordName === "@" ? record.domain.name : record.recordName);
+      console.log(`MX Records for ${record.recordName}:`, mxRecords);
 
-    // Validate if any MX record matches the expected value
-    const isValid = mxRecords.some((mx) => {
-      console.log(`Checking MX record: ${mx.exchange} against ${record.recordValue}`);
-      // Ensure exact match of the exchange value
-      return mx.exchange === record.recordValue;
-    });
-
-    if (!isValid) {
-      console.log(`MX record validation failed for ${record.recordName}`);
+      // Check if any MX record matches exactly the expected MX value
+      return mxRecords.some((mx) => mx.exchange.toLowerCase() === record.recordValue.toLowerCase());
     }
 
-    return isValid;
-    }
-
-    const result = await dns.resolve(record.recordName, record.recordType);
-    console.log(`DNS Records for ${record.recordName}:`, result);  // Debugging output
+    // For TXT and others
+    const result = await dns.resolve(record.recordName === "@" ? record.domain.name : record.recordName, record.recordType);
+    console.log(`DNS Records for ${record.recordName}:`, result);
 
     if (record.recordType === "TXT") {
-      const flattened = result
-        .flat()
-        .map((r) => (Array.isArray(r) ? r.join("") : r));
-      return flattened.includes(record.recordValue);
+      // Flatten array of arrays and join strings
+      const flattened = result.flat().map((r) => (Array.isArray(r) ? r.join("") : r));
+      return flattened.some((txt) => txt.includes(record.recordValue));
     }
 
-    return result.includes(record.recordValue);
+    // For other types like CNAME, A, etc.
+    return result.some((r) => r.toLowerCase() === record.recordValue.toLowerCase());
   } catch (error) {
     console.error(`Error verifying DNS record for ${record.recordName}:`, error.message);
     return false;
   }
 }
 
-// SendGrid API call
+// SendGrid API call to create domain & get DNS records
 async function getSendGridDNSRecords(domain) {
   try {
     const response = await axios.post(
