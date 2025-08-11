@@ -76,7 +76,6 @@ export const addDomain = asyncHandler(async (req, res) => {
     })
   );
 });
-
 // Verify Domain
 export const verifyDomain = asyncHandler(async (req, res) => {
   const { domainId } = req.params;
@@ -91,20 +90,19 @@ export const verifyDomain = asyncHandler(async (req, res) => {
 
   let allValid = true;
 
-  // Step 1: Local DNS check for all records
+  // Pass domain.name to verifyDnsRecord
   for (const record of domain.dnsRecords) {
-    const isValid = await verifyDnsRecord(record);
+    const isValid = await verifyDnsRecord(record, domain.name);
     console.log(`Record ${record.recordName} (${record.recordType}): verified=${isValid}`);
     if (!isValid) allValid = false;
 
-    // Update individual DNS record verification status
     await Prisma.dNSRecord.update({
       where: { id: record.id },
       data: { isVerified: isValid },
     });
   }
 
-  // Step 2: SendGrid validation
+  // SendGrid validation stays the same
   if (domain.sendgridDomainId) {
     const sendgridRes = await validateDomain(domain.sendgridDomainId);
 
@@ -133,7 +131,6 @@ export const verifyDomain = asyncHandler(async (req, res) => {
     console.warn(`No sendgridDomainId found for domain ${domain.id}`);
   }
 
-  // Step 3: Update domain status based on verification
   const domainStatus = allValid ? "VERIFIED" : "PENDING";
   await Prisma.domain.update({
     where: { id: domain.id },
@@ -147,33 +144,31 @@ export const verifyDomain = asyncHandler(async (req, res) => {
   );
 });
 
-// DNS record verification helper
-async function verifyDnsRecord(record) {
+// DNS record verification helper (fixed)
+async function verifyDnsRecord(record, domainName) {
   try {
     if (record.recordType === "MX") {
       console.log(record);
       console.log(`Verifying MX record for ${record.recordName}...`);
-      
-      // Resolve MX records for the domain
-      const mxRecords = await dns.resolveMx(record.recordName === "@" ? record.domain.name : record.recordName);
-      console.log(`MX Records for ${record.recordName}:`, mxRecords);
 
-      // Check if any MX record matches exactly the expected MX value
-      return mxRecords.some((mx) => mx.exchange.toLowerCase() === record.recordValue.toLowerCase());
+      // MX records hamesha domain ke liye resolve karenge
+      const mxRecords = await dns.resolveMx(domainName);
+      console.log(`MX Records for ${domainName}:`, mxRecords);
+
+      return mxRecords.some(mx => mx.exchange.toLowerCase() === record.recordValue.toLowerCase());
     }
 
-    // For TXT and others
-    const result = await dns.resolve(record.recordName === "@" ? record.domain.name : record.recordName, record.recordType);
-    console.log(`DNS Records for ${record.recordName}:`, result);
+    // TXT, CNAME, A, etc.
+    const lookupName = record.recordName === "@" ? domainName : record.recordName;
+    const result = await dns.resolve(lookupName, record.recordType);
+    console.log(`DNS Records for ${lookupName}:`, result);
 
     if (record.recordType === "TXT") {
-      // Flatten array of arrays and join strings
-      const flattened = result.flat().map((r) => (Array.isArray(r) ? r.join("") : r));
-      return flattened.some((txt) => txt.includes(record.recordValue));
+      const flattened = result.flat().map(r => (Array.isArray(r) ? r.join('') : r));
+      return flattened.some(txt => txt.includes(record.recordValue));
     }
 
-    // For other types like CNAME, A, etc.
-    return result.some((r) => r.toLowerCase() === record.recordValue.toLowerCase());
+    return result.some(r => r.toLowerCase() === record.recordValue.toLowerCase());
   } catch (error) {
     console.error(`Error verifying DNS record for ${record.recordName}:`, error.message);
     return false;
