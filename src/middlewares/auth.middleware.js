@@ -8,6 +8,8 @@ import Prisma from "../db/db.js";
  * and populates req.user = { id, email, role, model: "USER" | "MAILBOX" }
  */
 const requireAuth = asyncHandler(async (req, res, next) => {
+  console.log("Auth middleware triggered", req.cookies, req.headers.authorization, req.body.accessToken);
+  
   const token =
     req.cookies?.accessToken ||
     (req.headers.authorization && req.headers.authorization.split(" ")[1]) ||

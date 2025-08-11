@@ -57,6 +57,7 @@ sudo apt install -y nodejs
 echo "🛡 Configuring UFW firewall rules..."
 sudo ufw allow 'Nginx Full'
 sudo ufw allow 22
+sudo ufw allow 3000  # Allow HTTP traffic
 sudo ufw allow ${API_PORT}
 sudo ufw deny 3306  # 🚫 Deny public access to MySQL
 sudo ufw --force enable
@@ -87,7 +88,7 @@ server {
     server_name ${API_DOMAIN};
 
     location / {
-        proxy_pass http://127.0.0.1:${API_PORT};
+        proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -153,6 +154,15 @@ fi
 
 cd $PROJECT_DIR
 sudo npm install
+
+# Create .env file for Prisma
+echo "📄 Creating .env file for Prisma..."
+cat <<EOL > .env
+DATABASE_URL="mysql://${DB_USER}:${DB_PASS}@localhost:3306/${DB_NAME}"
+EOL
+
+# Export DATABASE_URL for current shell
+export DATABASE_URL="mysql://${DB_USER}:${DB_PASS}@localhost:3306/${DB_NAME}"
 
 # Prisma migrate
 echo "📦 Running Prisma migrations..."
