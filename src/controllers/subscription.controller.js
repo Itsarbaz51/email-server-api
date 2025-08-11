@@ -3,6 +3,8 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import Prisma from "../db/db.js";
 
+const MAX_INT = Number.MAX_SAFE_INTEGER;
+
 const planLimits = {
   FREE: {
     maxDomains: 1,
@@ -21,18 +23,19 @@ const planLimits = {
   PREMIUM: {
     maxDomains: 10,
     maxMailboxes: 50,
-    maxSentEmails: Infinity,      // Unlimited
-    maxReceivedEmails: Infinity,  // Unlimited
+    maxSentEmails: MAX_INT,      // use max int instead of Infinity
+    maxReceivedEmails: MAX_INT,
     allowedStorageMB: 51200,
   },
 };
-
 
 const adjustLimitsForBillingCycle = (limits, billingCycle) => {
   if (billingCycle.toUpperCase() === "YEARLY") {
     return {
       maxDomains: Math.floor(limits.maxDomains * 1.5),
       maxMailboxes: Math.floor(limits.maxMailboxes * 1.5),
+      maxSentEmails: limits.maxSentEmails === MAX_INT ? MAX_INT : Math.floor(limits.maxSentEmails * 1.5),
+      maxReceivedEmails: limits.maxReceivedEmails === MAX_INT ? MAX_INT : Math.floor(limits.maxReceivedEmails * 1.5),
       allowedStorageMB: Math.floor(limits.allowedStorageMB * 1.5),
     };
   }
@@ -40,78 +43,81 @@ const adjustLimitsForBillingCycle = (limits, billingCycle) => {
 };
 
 export const createOrRenewSubscription = asyncHandler(async (req, res) => {
-  const { plan, billingCycle, razorpayOrderId, razorpayPaymentId, razorpayStatus } = req.body;
+  let { plan, billingCycle, razorpayOrderId, razorpayPaymentId, razorpayStatus, paymentStatus, paymentId } = req.body;
   const userId = req.user.id;
 
-  // Validate plan and billingCycle
+  if (!plan || !billingCycle) {
+    throw new ApiError(400, "Plan and billing cycle are required");
+  }
+
+  plan = plan.toUpperCase();
+  billingCycle = billingCycle.toUpperCase();
+
   const validPlans = Object.keys(planLimits);
   const validCycles = ["MONTHLY", "YEARLY"];
 
-  if (!validPlans.includes(plan.toUpperCase())) {
+  if (!validPlans.includes(plan)) {
     throw new ApiError(400, "Invalid plan");
   }
-  if (!validCycles.includes(billingCycle.toUpperCase())) {
+  if (!validCycles.includes(billingCycle)) {
     throw new ApiError(400, "Invalid billing cycle");
   }
 
   let startDate = new Date();
   let endDate = new Date();
 
-  if (plan.toUpperCase() === "FREE") {
+  if (plan === "FREE") {
     endDate.setDate(startDate.getDate() + 8); // 8 days free trial
-  } else if (billingCycle.toUpperCase() === "MONTHLY") {
+  } else if (billingCycle === "MONTHLY") {
     endDate.setMonth(startDate.getMonth() + 1);
-  } else if (billingCycle.toUpperCase() === "YEARLY") {
+  } else if (billingCycle === "YEARLY") {
     endDate.setFullYear(startDate.getFullYear() + 1);
   }
 
-  const baseLimits = planLimits[plan.toUpperCase()];
+  const baseLimits = planLimits[plan];
   const adjustedLimits = adjustLimitsForBillingCycle(baseLimits, billingCycle);
 
-  // Check existing subscription
+  // Try to get existing subscription for user
   const existingSub = await Prisma.subscription.findFirst({
     where: { userId, isActive: true },
   });
+
+  // Keep storageUsedMB if exists, else 0
+  const storageUsedMB = existingSub?.storageUsedMB || 0;
+
+  const subscriptionData = {
+    plan,
+    billingCycle,
+    maxDomains: adjustedLimits.maxDomains,
+    maxMailboxes: adjustedLimits.maxMailboxes,
+    maxSentEmails: adjustedLimits.maxSentEmails,
+    maxReceivedEmails: adjustedLimits.maxReceivedEmails,
+    allowedStorageMB: adjustedLimits.allowedStorageMB,
+    storageUsedMB,
+    paymentProvider: 'RAZORPAY', // hardcoded as per your schema default
+    paymentStatus: paymentStatus || "PENDING",
+    paymentId: paymentId || null,
+    razorpayOrderId: razorpayOrderId || null,
+    razorpayPaymentId: razorpayPaymentId || null,
+    razorpayStatus: razorpayStatus || null,
+    startDate,
+    endDate,
+    isActive: true,
+    userId,
+  };
 
   if (existingSub) {
     // Renew subscription
     const updatedSub = await Prisma.subscription.update({
       where: { id: existingSub.id },
-      data: {
-        plan,
-        billingCycle,
-        maxDomains: adjustedLimits.maxDomains,
-        maxMailboxes: adjustedLimits.maxMailboxes,
-        allowedStorageMB: adjustedLimits.allowedStorageMB,
-        maxSentEmails: adjustedLimits.maxSentEmails,
-        maxReceivedEmails: adjustedLimits.maxReceivedEmails,
-        razorpayOrderId,
-        razorpayPaymentId,
-        razorpayStatus,
-        startDate,
-        endDate,
-        isActive: true,
-      },
+      data: subscriptionData,
     });
     return res.json(new ApiResponse(200, "Subscription renewed successfully", updatedSub));
   }
 
   // Create new subscription
   const newSub = await Prisma.subscription.create({
-    data: {
-      plan,
-      billingCycle,
-      maxDomains: adjustedLimits.maxDomains,
-      maxMailboxes: adjustedLimits.maxMailboxes,
-      allowedStorageMB: adjustedLimits.allowedStorageMB,
-      razorpayOrderId,
-      razorpayPaymentId,
-      razorpayStatus,
-      startDate,
-      endDate,
-      isActive: true,
-      userId,
-    },
+    data: subscriptionData,
   });
 
   res.status(201).json(new ApiResponse(201, "Subscription created successfully", newSub));
