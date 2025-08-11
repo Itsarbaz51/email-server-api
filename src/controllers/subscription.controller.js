@@ -6,46 +6,80 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 const prisma = new PrismaClient();
 
 // Create subscription (Free Trial or Paid)
-export const createSubscription = asyncHandler(async (req, res) => {
-  const userId = req.user?.id;
-  const { plan, razorpayOrderId, razorpayPaymentId, razorpayStatus } = req.body;
+export const createOrRenewSubscription = async (req, res) => {
+  try {
+    const { plan, billingCycle, razorpayOrderId, razorpayPaymentId, razorpayStatus } = req.body;
+    const userId = req.user.id;
 
-  if (!userId) throw new ApiError(401, "Authentication required");
+    // Validate plan
+    const validPlans = ["FREE", "BASIC", "PREMIUM"];
+    if (!validPlans.includes(plan.toUpperCase())) {
+      return res.status(400).json({ message: "Invalid plan" });
+    }
 
-  // ✅ Check if user already has active subscription
-  const existing = await prisma.subscription.findFirst({
-    where: { userId, isActive: true },
-  });
+    // Validate billing cycle
+    const validCycles = ["MONTHLY", "YEARLY"];
+    if (!validCycles.includes(billingCycle.toUpperCase())) {
+      return res.status(400).json({ message: "Invalid billing cycle" });
+    }
 
-  if (existing) {
-    throw new ApiError(400, "User already has an active subscription");
+    let startDate = new Date();
+    let endDate = new Date();
+
+    if (plan.toUpperCase() === "FREE") {
+      endDate.setDate(startDate.getDate() + 8); // 8 days trial
+    } else if (billingCycle.toUpperCase() === "MONTHLY") {
+      endDate.setMonth(startDate.getMonth() + 1);
+    } else if (billingCycle.toUpperCase() === "YEARLY") {
+      endDate.setFullYear(startDate.getFullYear() + 1);
+    }
+
+    // Check if user already has subscription
+    const existingSub = await prisma.subscription.findFirst({
+      where: { userId, isActive: true }
+    });
+
+    if (existingSub) {
+      // Renew existing subscription
+      const updatedSub = await prisma.subscription.update({
+        where: { id: existingSub.id },
+        data: {
+          plan,
+          billingCycle,
+          razorpayOrderId,
+          razorpayPaymentId,
+          razorpayStatus,
+          startDate,
+          endDate,
+          isActive: true
+        }
+      });
+      return res.json({ message: "Subscription renewed successfully", subscription: updatedSub });
+    }
+
+    // Create new subscription
+    const newSub = await prisma.subscription.create({
+      data: {
+        plan,
+        billingCycle,
+        razorpayOrderId,
+        razorpayPaymentId,
+        razorpayStatus,
+        startDate,
+        endDate,
+        isActive: true,
+        userId
+      }
+    });
+
+    res.status(201).json({ message: "Subscription created successfully", subscription: newSub });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
+};
 
-  // Set limits based on plan
-  const limits = {
-    FREE: { maxDomains: 1, maxMailboxes: 1, maxStorageMB: 1024 },
-    BASIC: { maxDomains: 3, maxMailboxes: 10, maxStorageMB: 10240 },
-    PREMIUM: { maxDomains: 10, maxMailboxes: 50, maxStorageMB: 51200 },
-  };
-
-  const subscription = await prisma.subscription.create({
-    data: {
-      userId,
-      plan: plan || "FREE",
-      maxDomains: limits[plan || "FREE"].maxDomains,
-      maxMailboxes: limits[plan || "FREE"].maxMailboxes,
-      maxStorageMB: limits[plan || "FREE"].maxStorageMB,
-      razorpayOrderId,
-      razorpayPaymentId,
-      razorpayStatus: razorpayStatus || "PENDING",
-      trialUsed: plan === "FREE",
-    },
-  });
-
-  return res
-    .status(201)
-    .json(new ApiResponse(201, "Subscription created", subscription));
-});
 
 // Get current user's subscription
 export const getMySubscription = asyncHandler(async (req, res) => {

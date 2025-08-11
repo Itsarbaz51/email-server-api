@@ -1,5 +1,5 @@
 import Prisma from "../db/db.js";
-import {ApiError} from "../utils/ApiError.js";
+import { ApiError } from "../utils/ApiError.js";
 
 export const verifySubscription = (action) => {
   return async (req, res, next) => {
@@ -13,6 +13,7 @@ export const verifySubscription = (action) => {
     if (!user) throw new ApiError(404, "User not found");
 
     const today = new Date();
+    today.setHours(0, 0, 0, 0); // Remove time for date-only comparison
     const createdAt = new Date(user.createdAt);
     const diffDays = Math.floor((today - createdAt) / (1000 * 60 * 60 * 24));
 
@@ -23,7 +24,6 @@ export const verifySubscription = (action) => {
     // ===============================
     if (!subscription) {
       if (diffDays <= 8) {
-        // Free trial still active
         if (action === "createDomain") {
           const domainCount = await Prisma.domain.count({ where: { userId } });
           if (domainCount >= 1)
@@ -35,15 +35,15 @@ export const verifySubscription = (action) => {
             throw new ApiError(403, "Free trial: Only 1 mailbox allowed");
         }
         return next();
-      } else {
-        throw new ApiError(403, "Free trial expired. Please subscribe to continue");
       }
+      throw new ApiError(403, "Free trial expired. Please subscribe to continue");
     }
 
     // ===============================
     // 2️⃣ SUBSCRIPTION EXPIRED CHECK
     // ===============================
     const expiryDate = new Date(subscription.endDate);
+    expiryDate.setHours(0, 0, 0, 0);
     if (today > expiryDate) {
       throw new ApiError(403, "Subscription expired. Please renew to continue");
     }
@@ -51,31 +51,29 @@ export const verifySubscription = (action) => {
     // ===============================
     // 3️⃣ PLAN LIMITS
     // ===============================
+    const plan = subscription.plan?.toUpperCase();
 
-    // BASIC Plan
-    if (subscription.plan === "BASIC") {
+    const planLimits = {
+      BASIC: { domains: 2, mailboxes: 5 },
+      PREMIUM: { domains: Infinity, mailboxes: Infinity },
+    };
+
+    if (plan === "BASIC") {
       if (action === "createDomain") {
         const domainCount = await Prisma.domain.count({ where: { userId } });
-        if (domainCount >= 2)
+        if (domainCount >= planLimits.BASIC.domains) {
           throw new ApiError(403, "Basic plan: Max 2 domains allowed");
+        }
       }
       if (action === "createMailbox") {
         const mailboxCount = await Prisma.mailbox.count({ where: { userId } });
-        if (mailboxCount >= 5)
+        if (mailboxCount >= planLimits.BASIC.mailboxes) {
           throw new ApiError(403, "Basic plan: Max 5 mailboxes allowed");
-      }
-      if (["sendMail", "receiveMail"].includes(action)) {
-        return next(); // Allowed while subscription active
+        }
       }
     }
 
-    // PREMIUM Plan
-    if (subscription.plan === "PREMIUM") {
-      // No limits — allowed everything
-      return next();
-    }
-
-    // If no matching plan found, allow by default
+    // PREMIUM has no limits
     return next();
   };
 };
