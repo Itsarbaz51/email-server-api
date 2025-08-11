@@ -7,9 +7,8 @@ import Prisma from "../db/db.js";
  * requireAuth middleware reads accessToken from cookie or Authorization header
  * and populates req.user = { id, email, role, model: "USER" | "MAILBOX" }
  */
+
 const requireAuth = asyncHandler(async (req, res, next) => {
-  console.log("Auth middleware triggered", req.cookies, req.headers.authorization, req.body.accessToken);
-  
   const token =
     req.cookies?.accessToken ||
     (req.headers.authorization && req.headers.authorization.split(" ")[1]) ||
@@ -20,22 +19,34 @@ const requireAuth = asyncHandler(async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
 
-    // Try to find in users table
-    const user = await Prisma.user.findUnique({ where: { id: decoded.id }, select: { id: true, email: true, role: true } });
+    if (!decoded?.id) {
+      return ApiError.send(res, 401, "Invalid token payload");
+    }
+
+    // Try user first
+    const user = await Prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: { id: true, email: true, role: true },
+    });
+
     if (user) {
       req.user = { id: user.id, email: user.email, role: user.role, model: "USER" };
       return next();
     }
 
-    // Otherwise try mailbox
-    const mailbox = await Prisma.mailbox.findUnique({ where: { id: decoded.id }, select: { id: true, emailAddress: true } });
+    // Try mailbox next
+    const mailbox = await Prisma.mailbox.findUnique({
+      where: { id: decoded.id },
+      select: { id: true, emailAddress: true },
+    });
+
     if (mailbox) {
       req.mailbox = { id: mailbox.id, email: mailbox.emailAddress, role: "USER", model: "MAILBOX" };
       return next();
     }
 
-    return ApiError.send(res, 401, "User not found");
-  } catch (err) {
+    return ApiError.send(res, 401, "User or mailbox not found");
+  } catch (error) {
     return ApiError.send(res, 401, "Invalid or expired access token");
   }
 });
