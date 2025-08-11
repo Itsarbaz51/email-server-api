@@ -24,7 +24,7 @@ const domain = await Prisma.domain.findUnique({
   },
 });
 
-if (!domain || domain.adminId !== userId) {
+if (!domain || domain.userId !== userId) {
   return ApiError.send(res, 403, "Unauthorized domain access");
 }
 
