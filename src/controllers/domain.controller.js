@@ -95,14 +95,16 @@ export const verifyDomain = asyncHandler(async (req, res) => {
 
   // Step 1: Local DNS check
   for (const record of domain.dnsRecords) {
-    const isValid = await verifyDnsRecord(record);
-    if (!isValid) allValid = false;
+  const isValid = await verifyDnsRecord(record);
+  console.log(`Record ${record.recordName} (${record.recordType}): verified=${isValid}`);
+  if (!isValid) allValid = false;
 
-    await Prisma.dNSRecord.update({
-      where: { id: record.id },
-      data: { isVerified: isValid },
-    });
-  }
+  await Prisma.dNSRecord.update({
+    where: { id: record.id },
+    data: { isVerified: isValid },
+  });
+}
+
 
   // Step 2: SendGrid validation
 if (domain.sendgridDomainId) {
