@@ -100,11 +100,8 @@ export const verifyDomain = asyncHandler(async (req, res) => {
   }
 
   // Step 2: SendGrid validation
+if (domain.sendgridDomainId) {
   const sendgridRes = await validateDomain(domain.sendgridDomainId);
-
-  if (!sendgridRes) {
-    throw new ApiError(500, "Failed to validate domain with SendGrid");
-  }
 
   if (sendgridRes?.validation_results) {
     const { dkim1, dkim2, mail_cname } = sendgridRes.validation_results;
@@ -127,6 +124,10 @@ export const verifyDomain = asyncHandler(async (req, res) => {
       }
     }
   }
+} else {
+  console.warn(`No sendgridDomainId found for domain ${domain.id}`);
+}
+
 
   // Step 3: Update domain status
   await Prisma.domain.update({
