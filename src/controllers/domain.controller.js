@@ -151,6 +151,9 @@ export const verifyDomain = asyncHandler(async (req, res) => {
 async function verifyDnsRecord(record) {
   try {
     if (record.recordType === "MX") {
+      console.log(record);
+      console.log(`Verifying MX record for ${record.recordName}...`);
+      
       // Resolve MX records for the domain
       const mxRecords = await dns.resolveMx(record.recordName === "@" ? record.domain.name : record.recordName);
       console.log(`MX Records for ${record.recordName}:`, mxRecords);
