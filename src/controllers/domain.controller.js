@@ -77,9 +77,8 @@ export const addDomain = asyncHandler(async (req, res) => {
 
 // Verify Domain
 export const verifyDomain = asyncHandler(async (req, res) => {
-  const { domainId} = req.params;
+  const { domainId } = req.params;
   console.log(`Verifying domain with ID: ${domainId}`);
-  
 
   const domain = await Prisma.domain.findFirst({
     where: { id: domainId },
@@ -87,59 +86,57 @@ export const verifyDomain = asyncHandler(async (req, res) => {
   });
 
   console.log(`Found domain: ${domain}`);
-  
 
   if (!domain) throw new ApiError(404, "Domain not found");
 
   let allValid = true;
 
-  // Step 1: Local DNS check
+  // Step 1: Local DNS check for all records
   for (const record of domain.dnsRecords) {
-  const isValid = await verifyDnsRecord(record);
-  console.log(`Record ${record.recordName} (${record.recordType}): verified=${isValid}`);
-  if (!isValid) allValid = false;
+    const isValid = await verifyDnsRecord(record);
+    console.log(`Record ${record.recordName} (${record.recordType}): verified=${isValid}`);
+    if (!isValid) allValid = false;
 
-  await Prisma.dNSRecord.update({
-    where: { id: record.id },
-    data: { isVerified: isValid },
-  });
-}
-
+    await Prisma.dNSRecord.update({
+      where: { id: record.id },
+      data: { isVerified: isValid },
+    });
+  }
 
   // Step 2: SendGrid validation
-if (domain.sendgridDomainId) {
-  const sendgridRes = await validateDomain(domain.sendgridDomainId);
+  if (domain.sendgridDomainId) {
+    const sendgridRes = await validateDomain(domain.sendgridDomainId);
 
-  if (sendgridRes?.validation_results) {
-    const { dkim1, dkim2, mail_cname } = sendgridRes.validation_results;
-    const sendgridResults = [
-      { key: "s1._domainkey", result: dkim1 },
-      { key: "s2._domainkey", result: dkim2 },
-      { key: "em", result: mail_cname },
-    ];
+    if (sendgridRes?.validation_results) {
+      const { dkim1, dkim2, mail_cname } = sendgridRes.validation_results;
+      const sendgridResults = [
+        { key: "s1._domainkey", result: dkim1 },
+        { key: "s2._domainkey", result: dkim2 },
+        { key: "em", result: mail_cname },
+      ];
 
-    for (const record of domain.dnsRecords) {
-      const matching = sendgridResults.find((sg) =>
-        record.recordName.includes(sg.key)
-      );
-      if (matching) {
-        await Prisma.dNSRecord.update({
-          where: { id: record.id },
-          data: { isVerified: matching.result.valid },
-        });
-        if (!matching.result.valid) allValid = false;
+      for (const record of domain.dnsRecords) {
+        const matching = sendgridResults.find((sg) =>
+          record.recordName.includes(sg.key)
+        );
+        if (matching) {
+          await Prisma.dNSRecord.update({
+            where: { id: record.id },
+            data: { isVerified: matching.result.valid },
+          });
+          if (!matching.result.valid) allValid = false;
+        }
       }
     }
+  } else {
+    console.warn(`No sendgridDomainId found for domain ${domain.id}`);
   }
-} else {
-  console.warn(`No sendgridDomainId found for domain ${domain.id}`);
-}
 
-
-  // Step 3: Update domain status
+  // Step 3: Update domain status based on verification
+  const domainStatus = allValid ? "VERIFIED" : "PENDING";
   await Prisma.domain.update({
     where: { id: domain.id },
-    data: { status: allValid ? "VERIFIED" : "PENDING" },
+    data: { status: domainStatus },
   });
 
   return res.status(200).json(
