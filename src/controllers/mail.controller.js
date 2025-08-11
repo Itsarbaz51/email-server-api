@@ -10,6 +10,11 @@ import { sendViaSendGrid } from "../services/sendgridService.js";
 export const sendEmail = asyncHandler(async (req, res) => {
   const { from, to, subject, body, attachments } = req.body;
   const senderMailboxId = req.mailbox?.id;
+  console.log(req.user, "req.user");
+  console.log(req.mailbox, "req.mailbox");
+  
+  console.log(senderMailboxId, "senderMailboxId");
+  
 
   if (!from || !to || !subject || !body) {
     throw new ApiError(400, "Missing required fields: from,to,subject,body");
