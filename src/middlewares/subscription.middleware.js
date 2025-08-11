@@ -1,5 +1,5 @@
 import Prisma from "../db/db.js";
-import ApiError from "../utils/ApiError.js";
+import {ApiError} from "../utils/ApiError.js";
 
 export const verifySubscription = (action) => {
   return async (req, res, next) => {
