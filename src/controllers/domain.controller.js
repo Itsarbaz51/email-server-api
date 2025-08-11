@@ -150,13 +150,24 @@ export const verifyDomain = asyncHandler(async (req, res) => {
 async function verifyDnsRecord(record) {
   try {
     if (record.recordType === "MX") {
+      // Fetch MX records
       const mxRecords = await dns.resolveMx(record.recordName);
-      console.log(mxRecords);
-      
-      return mxRecords.some((mx) => mx.exchange === record.recordValue);
+      console.log(`MX Records for ${record.recordName}:`, mxRecords);  // Debugging output
+
+      // Validate that one of the MX records has the expected exchange value
+      const isValid = mxRecords.some((mx) => {
+        console.log(`Checking MX record: ${mx.exchange} against ${record.recordValue}`);
+        return mx.exchange === record.recordValue;
+      });
+
+      if (!isValid) {
+        console.log(`MX record validation failed for ${record.recordName}`);
+      }
+      return isValid;
     }
 
     const result = await dns.resolve(record.recordName, record.recordType);
+    console.log(`DNS Records for ${record.recordName}:`, result);  // Debugging output
 
     if (record.recordType === "TXT") {
       const flattened = result
@@ -167,7 +178,7 @@ async function verifyDnsRecord(record) {
 
     return result.includes(record.recordValue);
   } catch (error) {
-    console.error(`Error verifying DNS record: ${error.message}`);
+    console.error(`Error verifying DNS record for ${record.recordName}:`, error.message);
     return false;
   }
 }
