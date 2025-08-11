@@ -54,7 +54,7 @@ export const addDomain = asyncHandler(async (req, res) => {
   // Add custom MX record for platform
   const mxRecord = {
     recordType: "MX",
-    recordName: name,
+    recordName: "@",
     recordValue: "mail.primewebdev.in",
     ttl: 3600,
     domainId: createdDomain.id,
@@ -154,10 +154,11 @@ async function verifyDnsRecord(record) {
       const mxRecords = await dns.resolveMx(record.recordName);
       console.log(`MX Records for ${record.recordName}:`, mxRecords);  // Debugging output
 
-      // Adjust this if your expected value is "mail.primewebdev.in"
+      // Ensure we match the full exchange address properly
       const isValid = mxRecords.some((mx) => {
         console.log(`Checking MX record: ${mx.exchange} against ${record.recordValue}`);
-        return mx.exchange === record.recordValue || mx.exchange === `mail.${record.recordName}`;
+        // Now we allow for full domain matching
+        return mx.exchange === record.recordValue;
       });
 
       if (!isValid) {
