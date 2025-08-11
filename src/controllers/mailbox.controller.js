@@ -37,7 +37,7 @@ if (!domain.status === "VERIFIED") {
 }
 
 // Check DNS records verified status
-const allDnsVerified = domain.dnsRecords.length > 0 && domain.dnsRecords.every(record => record.verified === true);
+const allDnsVerified = domain.dnsRecords.length > 0 && domain.dnsRecords.every(record => record.isVerified === true);
 
 if (!allDnsVerified) {
   // DNS records not fully verified
