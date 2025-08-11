@@ -39,6 +39,7 @@ if (!domain.status === "VERIFIED") {
 // Check DNS records verified status
 const allDnsVerified = domain.dnsRecords.length > 0 && domain.dnsRecords.every(record => record.isVerified === true);
 
+let mailboxStatus;
 if (!allDnsVerified) {
   // DNS records not fully verified
   // Set mailbox status to PENDING
