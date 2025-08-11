@@ -43,7 +43,7 @@ export const addDomain = asyncHandler(async (req, res) => {
 
   // Convert SendGrid DNS records into our schema format
   const sendgridDNS = Object.entries(sendgridData.dns).map(([_, value]) => ({
-    recordType: value?.type || "CNAME",
+    recordType: value?.type.toUpperCase() || "CNAME",
     recordName: value?.host || "",
     recordValue: value?.data || "",
     ttl: value?.ttl || 3600,

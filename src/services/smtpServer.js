@@ -3,6 +3,7 @@ import { simpleParser } from "mailparser";
 import { SMTPServer } from "smtp-server";
 import Prisma from "../db/db.js";
 import { uploadToS3, generateS3Key } from "../services/s3Service.js";
+import { verifySubscription } from "../middlewares/subscription.middleware.js";
 
 const maxEmailSize = Number(process.env.MAX_EMAIL_SIZE_BYTES) || 25 * 1024 * 1024; // 25MB
 const attachmentsBucket = process.env.ATTACHMENTS_BUCKET;
@@ -88,6 +89,8 @@ export const incomingServer = new SMTPServer({
             console.log(`📭 No mailbox found or domain unverified: ${toAddress}`);
             continue;
           }
+          
+          await verifySubscription(mailbox.userId, "receiveMail");
 
           const received = await Prisma.receivedEmail.create({
             data: {
