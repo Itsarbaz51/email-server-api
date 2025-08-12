@@ -146,7 +146,7 @@ export const incomingServer = new SMTPServer({
                 try {
                   const filename = att.filename || "attachment";
                   const clean = filename.replace(/\s+/g, "_");
-                  const s3Key = generateS3Key("attachments", clean);
+                  const s3Key = generateS3Key("received", clean);
 
                   await uploadToS3({
                     bucket: ATTACHMENTS_BUCKET,
