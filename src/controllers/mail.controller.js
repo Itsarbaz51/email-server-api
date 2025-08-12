@@ -34,12 +34,14 @@ export const sendEmail = asyncHandler(async (req, res) => {
 
   // Upload email body to S3
   let bodyS3Url;
+  console.log( process.env.EMAIL_BODY_BUCKET);
+  
   console.log("bucket:", process.env.EMAIL_BODY_BUCKET);
   console.log(Buffer.from(body, "utf-8"));
-  console.log(`emails/sent/${fromMailbox.userId}/${Date.now()}-body.html`);
+  console.log(`emails/sent/${fromMailbox.user.email}/${Date.now()}-body.html`);
   
   try {
-    const bodyKey = `emails/sent/${fromMailbox.userId}/${Date.now()}-body.html`;
+    const bodyKey = `emails/sent/${fromMailbox.user.email}/${Date.now()}-body.html`;
     bodyS3Url = await uploadToS3({
       bucket: process.env.EMAIL_BODY_BUCKET,
       key: bodyKey,
