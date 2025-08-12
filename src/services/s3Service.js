@@ -2,12 +2,21 @@
 import AWS from "aws-sdk";
 import { v4 as uuidv4 } from "uuid";
 
+console.log(
+  "accessKeyId:", process.env.AWS_ACCESS_KEY_ID,
+  "secretAccessKey:", process.env.AWS_SECRET_ACCESS_KEY,
+  "region:", process.env.AWS_REGION,
+);
+
 // Configure AWS SDK
 const s3 = new AWS.S3({
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   region: process.env.AWS_REGION,
 });
+
+console.log("s3", s3);
+
 
 /**
  * Upload a file to S3
@@ -30,6 +39,9 @@ export async function uploadToS3({ bucket, key, body, contentType }) {
     Body: body,
     ContentType: contentType || "application/octet-stream",
   };
+
+  console.log("Uploading to S3:", params);
+  
 
   try {
     await s3.putObject(params).promise();
