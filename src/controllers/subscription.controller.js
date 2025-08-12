@@ -48,11 +48,11 @@ export const createOrRenewSubscription = asyncHandler(async (req, res) => {
   const userId = req.user.id;
 
   if (!razorpayOrderId || !razorpayPaymentId || !razorpayStatus || !paymentStatus || !paymentProvider || !paymentId) {
-    throw new ApiError(400, "All payment details are required");
+    return ApiError.send(res, 400, "All payment details are required");
   }
 
   if (!plan || !billingCycle) {
-    throw new ApiError(400, "Plan and billing cycle are required");
+    return ApiError.send(res, 400, "Plan and billing cycle are required");
   }
 
   plan = plan.toUpperCase();
@@ -62,10 +62,10 @@ export const createOrRenewSubscription = asyncHandler(async (req, res) => {
   const validCycles = ["MONTHLY", "YEARLY"];
 
   if (!validPlans.includes(plan)) {
-    throw new ApiError(400, "Invalid plan");
+    return ApiError.send(res, 400, "Invalid plan");
   }
   if (!validCycles.includes(billingCycle)) {
-    throw new ApiError(400, "Invalid billing cycle");
+    return ApiError.send(res, 400, "Invalid billing cycle");
   }
 
   let startDate = new Date();
@@ -130,14 +130,14 @@ export const createOrRenewSubscription = asyncHandler(async (req, res) => {
 
 export const getMySubscription = asyncHandler(async (req, res) => {
   const userId = req.user?.id;
-  if (!userId) throw new ApiError(401, "Authentication required");
+  if (!userId) return ApiError.send(res, 401, "Authentication required");
 
   const subscription = await Prisma.subscription.findFirst({
     where: { userId, isActive: true },
   });
 
   if (!subscription) {
-    throw new ApiError(404, "No active subscription found");
+    return ApiError.send(res, 404, "No active subscription found");
   }
 
   return res.status(200).json(new ApiResponse(200, "Subscription retrieved", subscription));
@@ -145,14 +145,14 @@ export const getMySubscription = asyncHandler(async (req, res) => {
 
 export const cancelSubscription = asyncHandler(async (req, res) => {
   const userId = req.user?.id;
-  if (!userId) throw new ApiError(401, "Authentication required");
+  if (!userId) return ApiError.send(res, 401, "Authentication required");
 
   const subscription = await Prisma.subscription.findFirst({
     where: { userId, isActive: true },
   });
 
   if (!subscription) {
-    throw new ApiError(404, "No active subscription found");
+    return ApiError.send(res, 404, "No active subscription found");
   }
 
   await Prisma.subscription.update({

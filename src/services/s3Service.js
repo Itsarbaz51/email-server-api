@@ -1,6 +1,7 @@
 // services/s3Service.js
 import AWS from "aws-sdk";
 import { v4 as uuidv4 } from "uuid";
+import { ApiError } from "../utils/ApiError";
 
 console.log("AWS S3 Service Initialized");
 
@@ -32,7 +33,7 @@ export async function uploadToS3({ bucket, key, body, contentType }) {
   console.log("bucket",bucket, "key",key, "body",body, "contentType",contentType);
   
   if (!bucket || !key || !body) {
-    throw new Error("❌ Missing required parameters for S3 upload");
+    return ApiError.send(resizeBy, 401, "❌ Missing required parameters for S3 upload");
   }
 
   const params = {

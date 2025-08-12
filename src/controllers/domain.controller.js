@@ -12,7 +12,7 @@ export const addDomain = asyncHandler(async (req, res) => {
   const userId = req.user?.id;
 
   if (!name || !userId) {
-    throw new ApiError(400, "Domain name and user ID required");
+    return ApiError.send(res, 400, "Domain name and user ID required");
   }
 
   // Check if domain already exists (case insensitive)
@@ -23,13 +23,13 @@ export const addDomain = asyncHandler(async (req, res) => {
   });
 
   if (exists) {
-    throw new ApiError(409, "Domain already exists");
+    return ApiError.send(res, 409, "Domain already exists");
   }
 
   // Create domain in SendGrid (make sure domain is lower case)
   const sendgridData = await getSendGridDNSRecords(name.toLowerCase());
   if (!sendgridData?.id || !sendgridData?.dns) {
-    throw new ApiError(500, "Failed to get DNS records from SendGrid");
+    return ApiError.send(res, 500, "Failed to get DNS records from SendGrid");
   }
 
   // Save domain in DB
@@ -86,7 +86,7 @@ export const verifyDomain = asyncHandler(async (req, res) => {
     include: { dnsRecords: true },
   });
 
-  if (!domain) throw new ApiError(404, "Domain not found");
+  if (!domain) return ApiError.send(res, 404, "Domain not found");
 
   let allValid = true;
 
@@ -196,6 +196,6 @@ async function getSendGridDNSRecords(domain) {
     return response.data;
   } catch (err) {
     console.error("SendGrid DNS fetch failed", err.response?.data || err);
-    throw new ApiError(500, "Failed to fetch SendGrid DNS records");
+    return ApiError.send(res, 500, "Failed to fetch SendGrid DNS records");
   }
 }

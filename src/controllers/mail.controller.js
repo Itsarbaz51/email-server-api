@@ -18,10 +18,10 @@ export const sendEmail = [
     const senderMailboxId = req.mailbox?.id;
 
     if (!from || !to || !subject || !body) {
-      throw new ApiError(400, "Missing required fields: from, to, subject, body");
+      return ApiError.send(res, 400, "Missing required fields: from, to, subject, body");
     }
     if (!senderMailboxId) {
-      throw new ApiError(401, "Mailbox authentication required");
+      return ApiError.send(res, 401, "Mailbox authentication required");
     }
 
     const fromMailbox = await Prisma.mailbox.findFirst({
@@ -37,7 +37,7 @@ export const sendEmail = [
     });
 
     if (!fromMailbox) {
-      throw new ApiError(403, "Unauthorized sender or domain not verified");
+      return ApiError.send(res, 403, "Unauthorized sender or domain not verified");
     }
 
     // Upload email body to S3
@@ -52,7 +52,7 @@ export const sendEmail = [
       });
     } catch (err) {
       console.error("S3 upload (body) failed:", err);
-      throw new ApiError(500, "Failed to store email body");
+      return ApiError.send(res, 500, "Failed to store email body");
     }
 
     // Upload attachments if any
@@ -121,7 +121,7 @@ export const sendEmail = [
         },
       });
 
-      throw new ApiError(500, "Failed to send email");
+      return ApiError.send(res, 500, "Failed to send email");
     }
 
     console.log(fromMailbox);
@@ -170,10 +170,10 @@ export const receivedEmail = asyncHandler(async (req, res) => {
   const mailboxId = req.params.mailboxId;
   const authenticatedMailboxId = req.mailbox?.id;
 
-  if (!authenticatedMailboxId) throw new ApiError(401, "Auth required");
+  if (!authenticatedMailboxId) return ApiError.send(res, 401, "Auth required");
   if (authenticatedMailboxId !== mailboxId && req.user?.role !== "ADMIN") {
     // only owner or admin can view
-    throw new ApiError(403, "Forbidden");
+    return ApiError.send(res, 403, "Forbidden");
   }
 
   const received = await Prisma.receivedEmail.findMany({
@@ -197,7 +197,7 @@ export const getSingleEmail = asyncHandler(async (req, res) => {
   const { type, id } = req.params;
   const mailboxAuthId = req.mailbox?.id;
 
-  if (!mailboxAuthId) throw new ApiError(401, "Auth required");
+  if (!mailboxAuthId) return ApiError.send(res, 401, "Auth required");
 
   let message;
   if (type === "sent") {
@@ -211,10 +211,10 @@ export const getSingleEmail = asyncHandler(async (req, res) => {
       include: { mailbox: { select: { emailAddress: true } }, attachments: true },
     });
   } else {
-    throw new ApiError(400, "Invalid type param");
+    return ApiError.send(res, 400, "Invalid type param");
   }
 
-  if (!message) throw new ApiError(404, "Message not found");
+  if (!message) return ApiError.send(res, 404, "Message not found");
 
   return res.status(200).json(new ApiResponse(200, "Message fetched", message));
 });
@@ -225,7 +225,7 @@ export const getAllMails = asyncHandler(async (req, res) => {
     const userId = req.user?.id; // assuming middleware sets req.user
   
     if (!userId) {
-      throw new ApiError(401, "Authentication required");
+      return ApiError.send(res, 401, "Authentication required");
     }
   
     // ✅ Check if mailbox belongs to the logged-in user
@@ -233,7 +233,7 @@ export const getAllMails = asyncHandler(async (req, res) => {
       where: { id: mailboxId, userId },
     });
     if (!mailbox) {
-      throw new ApiError(404, "Mailbox not found or access denied");
+      return ApiError.send(res, 404, "Mailbox not found or access denied");
     }
   
     // 📩 Fetch received emails
