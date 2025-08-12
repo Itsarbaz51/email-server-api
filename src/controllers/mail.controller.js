@@ -23,15 +23,17 @@ export const sendEmail = asyncHandler(async (req, res) => {
     where: {
       id: senderMailboxId,
       emailAddress: from.toLowerCase(),
-      domain: { status: "VERIFIED" },
-      include: { domain: true },
+      domain: { status: "VERIFIED",  },
     },
     include: { domain: { select: { name: true } } },
+    include: { user: { select: { email: true } } },
   });
 
   if (!fromMailbox) {
     throw new ApiError(403, "Unauthorized sender or domain not verified");
   }
+
+  console.log("Sending email from:", fromMailbox);
 
   // Upload email body to S3
   let bodyS3Url;
