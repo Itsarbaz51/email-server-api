@@ -158,8 +158,10 @@ model SentEmail {
   status    String   @default("SENT") // SENT, FAILED, BOUNCED
   sentAt    DateTime @default(now())
 
+
   mailbox Mailbox @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attachments Attachment[]
 
   @@map("sent_emails")
 }
@@ -193,6 +195,7 @@ model Attachment {
 
   mailbox Mailbox @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sentEmail SentEmail? @relation(fields: [emailId], references: [id])
 
   @@map("attachments")
 }
