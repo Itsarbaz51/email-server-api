@@ -24,7 +24,7 @@ export async function sendViaSendGrid({
   to,
   subject,
   html,
-  sendgridAttachments = [],
+  attachments = [],
 }) {
   const data = {
     personalizations: [
@@ -43,8 +43,8 @@ export async function sendViaSendGrid({
   };
 
   // ✅ Attachments handling
-  if (sendgridAttachments.length > 0) {
-    data.attachments = sendgridAttachments.map((att) => ({
+  if (attachments.length > 0) {
+    data.attachments = attachments.map((att) => ({
       content: att.content, // Base64 encoded
       filename: att.filename,
       type: att.type, // mime type
