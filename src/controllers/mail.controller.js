@@ -24,6 +24,7 @@ export const sendEmail = asyncHandler(async (req, res) => {
       id: senderMailboxId,
       emailAddress: from.toLowerCase(),
       domain: { status: "VERIFIED" },
+      include: { domain: true },
     },
     include: { domain: { select: { name: true } } },
   });
