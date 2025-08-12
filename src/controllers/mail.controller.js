@@ -106,31 +106,31 @@ export const sendEmail = [
     } catch (err) {
       console.error("sendViaSendGrid error:", err);
       await Prisma.sentEmail.create({
-        data: {
-          mailboxId: fromMailbox.id,
-          userId: fromMailbox.userId,
-          toEmail: Array.isArray(to) ? (to[0] || "") : to,
-          subject,
-          body: bodyS3Url,
-          status: "FAILED",
-          attachments: { create: attachmentRecords },
-        },
-      });
+  data: {
+    mailbox: { connect: { id: fromMailbox.id } },
+    user: { connect: { id: fromMailbox.userId } },
+    toEmail: Array.isArray(to) ? (to[0] || "") : to,
+    subject,
+    body: bodyS3Url,
+    status: "FAILED",
+    attachments: { create: attachmentRecords },
+  },
+});
       throw new ApiError(500, "Failed to send email");
     }
 
     // Save sent email record
     const sent = await Prisma.sentEmail.create({
-      data: {
-        mailboxId: fromMailbox.id,
-        userId: fromMailbox.userId,
-        toEmail: Array.isArray(to) ? (to[0] || "") : to,
-        subject,
-        body: bodyS3Url,
-        status: "SENT",
-        attachments: { create: attachmentRecords },
-      },
-    });
+  data: {
+    mailbox: { connect: { id: fromMailbox.id } },
+    user: { connect: { id: fromMailbox.userId } },
+    toEmail: Array.isArray(to) ? (to[0] || "") : to,
+    subject,
+    body: bodyS3Url,
+    status: "SENT",
+    attachments: { create: attachmentRecords },
+  },
+});
 
     // Create received email record if mailbox exists
     const recipient = Array.isArray(to) ? to[0] : to;
