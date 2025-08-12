@@ -40,8 +40,12 @@ const requireAuth = asyncHandler(async (req, res, next) => {
       select: { id: true, emailAddress: true },
     });
 
+    console.log(mailbox);
+    
     if (mailbox) {
       req.mailbox = { id: mailbox.id, email: mailbox.emailAddress, role: "USER", model: "MAILBOX" };
+      console.log(req.mailbox);
+      
       return next();
     }
 

@@ -47,8 +47,19 @@ const signupAdmin = asyncHandler(async (req, res) => {
 
   const hashedPassword = await hashPassword(password);
 
-  // Accept only allowed admin roles
-  const finalRole = role === "SUPER_ADMIN" ? "SUPER_ADMIN" : "ADMIN";
+  // Check if a SUPER_ADMIN already exists in DB
+  let finalRole = "ADMIN"; // default
+
+  if (role === "SUPER_ADMIN") {
+    const existingSuperAdmin = await Prisma.user.findFirst({
+      where: { role: "SUPER_ADMIN" },
+    });
+    if (!existingSuperAdmin) {
+      finalRole = "SUPER_ADMIN";
+    }
+  } else {
+    finalRole = "ADMIN"; // force admin if role not SUPER_ADMIN
+  }
 
   const created = await Prisma.user.create({
     data: {
@@ -66,6 +77,7 @@ const signupAdmin = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, "Admin registered successfully", { id: created.id }));
 });
 
+
 // sigup public route admin
 const signup = asyncHandler(async (req, res) => {
   const { name, email, password } = req.body;
@@ -78,7 +90,7 @@ const signup = asyncHandler(async (req, res) => {
 
   const hashed = await hashPassword(password);
   const user = await Prisma.user.create({
-    data: { name, email, password: hashed, role: "USER" },
+    data: { name, email, password: hashed, role: "ADMIN" },
     select: { id: true, name: true, email: true, role: true, createdAt: true },
   });
 
