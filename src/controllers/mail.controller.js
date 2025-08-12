@@ -5,154 +5,152 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import Prisma from "../db/db.js";
 import { sendViaSendGrid } from "../services/sendgridService.js";
 import { uploadToS3 } from "../services/s3Service.js";
+import multer from "multer";
 
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 // sendEmail - API for authenticated mailbox to send outbound email.
-export const sendEmail = asyncHandler(async (req, res) => {
-  const { from, to, subject, body, attachments } = req.body;
-  const senderMailboxId = req.mailbox?.id;
+export const sendEmail = [
+  upload.array("attachments"), // Handle files from Postman (form-data)
+  asyncHandler(async (req, res) => {
+    const { from, to, subject, body } = req.body;
+    const senderMailboxId = req.mailbox?.id;
 
-  if (!from || !to || !subject || !body) {
-    throw new ApiError(400, "Missing required fields: from, to, subject, body");
-  }
-  if (!senderMailboxId) {
-    throw new ApiError(401, "Mailbox authentication required");
-  }
+    if (!from || !to || !subject || !body) {
+      throw new ApiError(400, "Missing required fields: from, to, subject, body");
+    }
+    if (!senderMailboxId) {
+      throw new ApiError(401, "Mailbox authentication required");
+    }
 
-  const fromMailbox = await Prisma.mailbox.findFirst({
-    where: {
-      id: senderMailboxId,
-      emailAddress: from.toLowerCase(),
-      domain: { status: "VERIFIED",  },
-    },
-    include: { domain: { select: { name: true } } },
-    include: { user: { select: { email: true } } },
-  });
-
-  if (!fromMailbox) {
-    throw new ApiError(403, "Unauthorized sender or domain not verified");
-  }
-
-  console.log("Sending email from:", fromMailbox);
-
-  // Upload email body to S3
-  let bodyS3Url;
-  console.log( process.env.EMAIL_BODY_BUCKET);
-  
-  console.log("bucket:", process.env.EMAIL_BODY_BUCKET);
-  console.log(Buffer.from(body, "utf-8"));
-  console.log(`emails/sent/${fromMailbox.user.email}/${Date.now()}-body.html`);
-  
-  try {
-    const bodyKey = `emails/sent/${fromMailbox.user.email}/${Date.now()}-body.html`;
-    bodyS3Url = await uploadToS3({
-      bucket: process.env.EMAIL_BODY_BUCKET,
-      key: bodyKey,
-      body: Buffer.from(body, "utf-8"),
-      contentType: "text/html",
+    const fromMailbox = await Prisma.mailbox.findFirst({
+      where: {
+        id: senderMailboxId,
+        emailAddress: from.toLowerCase(),
+        domain: { status: "VERIFIED" },
+      },
+      include: {
+        domain: { select: { name: true } },
+        user: { select: { email: true } },
+      },
     });
-  } catch (err) {
-    console.error("S3 upload (body) failed:", err);
-    throw new ApiError(500, "Failed to store email body");
-  }
 
-  // Upload attachments if any
-  let attachmentRecords = [];
-  if (Array.isArray(attachments) && attachments.length > 0) {
-    for (let file of attachments) {
-      try {
-        const attKey = `emails/sent/${fromMailbox.userId}/${Date.now()}-${file.filename.replace(/\s+/g, "_")}`;
-        const fileUrl = await uploadToS3({
-          bucket: process.env.ATTACHMENTS_BUCKET,
-          key: attKey,
-          body: Buffer.from(file.content, "base64"),
-          contentType: file.mimetype,
-        });
-        attachmentRecords.push({
-          filename: file.filename,
-          contentType: file.mimetype,
-          size: file.size || Buffer.byteLength(file.content, "base64"),
-          s3Url: fileUrl,
-          s3Key: attKey,
-          s3Bucket: process.env.ATTACHMENTS_BUCKET,
-        });
-      } catch (err) {
-        console.error("S3 upload (attachment) failed:", err);
-        // Optionally handle error or continue without that attachment
+    if (!fromMailbox) {
+      throw new ApiError(403, "Unauthorized sender or domain not verified");
+    }
+
+    // Upload email body to S3
+    let bodyS3Url;
+    try {
+      const bodyKey = `emails/sent/${fromMailbox.user.email}/${Date.now()}-body.html`;
+      bodyS3Url = await uploadToS3({
+        bucket: process.env.EMAIL_BODY_BUCKET,
+        key: bodyKey,
+        body: Buffer.from(body, "utf-8"),
+        contentType: "text/html",
+      });
+    } catch (err) {
+      console.error("S3 upload (body) failed:", err);
+      throw new ApiError(500, "Failed to store email body");
+    }
+
+    // Upload attachments if any
+    let attachmentRecords = [];
+    if (req.files && req.files.length > 0) {
+      for (let file of req.files) {
+        try {
+          const attKey = `emails/sent/${fromMailbox.userId}/${Date.now()}-${file.originalname.replace(/\s+/g, "_")}`;
+          const fileUrl = await uploadToS3({
+            bucket: process.env.ATTACHMENTS_BUCKET,
+            key: attKey,
+            body: file.buffer,
+            contentType: file.mimetype,
+          });
+          attachmentRecords.push({
+            fileName: file.originalname,
+            fileSizeMB: Math.round(file.size / (1024 * 1024)),
+            mimeType: file.mimetype,
+            s3Key: attKey,
+            s3Bucket: process.env.ATTACHMENTS_BUCKET,
+          });
+        } catch (err) {
+          console.error("S3 upload (attachment) failed:", err);
+        }
       }
     }
-  }
 
-  // Prepare attachments for SendGrid only if present
-  const sendgridAttachments = Array.isArray(attachments) && attachments.length > 0
-    ? attachments.map(att => ({
-        filename: att.filename,
-        content: att.content,
-        type: att.mimetype,
-        disposition: "attachment",
-      }))
-    : [];
+    // Prepare attachments for SendGrid
+    const sendgridAttachments = req.files && req.files.length > 0
+      ? req.files.map(file => ({
+          filename: file.originalname,
+          content: file.buffer.toString("base64"),
+          type: file.mimetype,
+          disposition: "attachment",
+        }))
+      : [];
 
-  // Send email via SendGrid
-  try {
-    await sendViaSendGrid({
-      from: { email: from, name: fromMailbox.name || from },
-      to,
-      subject,
-      html: body,
-      attachments: sendgridAttachments,
-    });
-  } catch (err) {
-    console.error("sendViaSendGrid error:", err?.response?.data || err?.message || err);
-    await Prisma.sentEmail.create({
+    // Send email via SendGrid
+    try {
+      await sendViaSendGrid({
+        from: { email: from, name: fromMailbox.name || from },
+        to,
+        subject,
+        html: body,
+        attachments: sendgridAttachments,
+      });
+    } catch (err) {
+      console.error("sendViaSendGrid error:", err);
+      await Prisma.sentEmail.create({
+        data: {
+          mailboxId: fromMailbox.id,
+          userId: fromMailbox.userId,
+          toEmail: Array.isArray(to) ? (to[0] || "") : to,
+          subject,
+          body: bodyS3Url,
+          status: "FAILED",
+          attachments: { create: attachmentRecords },
+        },
+      });
+      throw new ApiError(500, "Failed to send email");
+    }
+
+    // Save sent email record
+    const sent = await Prisma.sentEmail.create({
       data: {
         mailboxId: fromMailbox.id,
         userId: fromMailbox.userId,
         toEmail: Array.isArray(to) ? (to[0] || "") : to,
         subject,
-        bodyS3Url,
-        status: "FAILED",
+        body: bodyS3Url,
+        status: "SENT",
         attachments: { create: attachmentRecords },
       },
     });
-    throw new ApiError(500, "Failed to send email");
-  }
 
-  // Save sent email record
-  const sent = await Prisma.sentEmail.create({
-    data: {
-      mailboxId: fromMailbox.id,
-      userId: fromMailbox.userId,
-      toEmail: Array.isArray(to) ? (to[0] || "") : to,
-      subject,
-      body: bodyS3Url,
-      status: "SENT",
-      attachments: { create: attachmentRecords },
-    },
-  });
-
-  // Create received email record if recipient mailbox exists and domain verified
-  const recipient = Array.isArray(to) ? to[0] : to;
-  const toMailbox = await Prisma.mailbox.findFirst({
-    where: { emailAddress: recipient.toLowerCase(), domain: { status: "VERIFIED" } },
-    select: { id: true, userId: true },
-  });
-
-  if (toMailbox) {
-    await Prisma.receivedEmail.create({
-      data: {
-        mailboxId: toMailbox.id,
-        userId: toMailbox.userId,
-        fromEmail: from,
-        subject,
-        bodyS3Url,
-        attachments: { create: attachmentRecords },
-      },
+    // Create received email record if mailbox exists
+    const recipient = Array.isArray(to) ? to[0] : to;
+    const toMailbox = await Prisma.mailbox.findFirst({
+      where: { emailAddress: recipient.toLowerCase(), domain: { status: "VERIFIED" } },
+      select: { id: true, userId: true },
     });
-  }
 
-  return res.status(201).json(new ApiResponse(201, "Email sent", { sentId: sent.id }));
-});
+    if (toMailbox) {
+      await Prisma.receivedEmail.create({
+        data: {
+          mailboxId: toMailbox.id,
+          userId: toMailbox.userId,
+          fromEmail: from,
+          subject,
+          body: bodyS3Url,
+          attachments: { create: attachmentRecords },
+        },
+      });
+    }
+
+    return res.status(201).json(new ApiResponse(201, "Email sent", { sentId: sent.id }));
+  }),
+];
 
 
 // receivedEmail - returns received + sent for a mailbox (mailbox auth required)
