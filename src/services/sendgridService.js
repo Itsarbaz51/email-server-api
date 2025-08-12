@@ -19,12 +19,19 @@ export async function validateDomain(domainId) {
   const res = await axios.post(`${SENDGRID_API}/whitelabel/domains/${domainId}/validate`, {}, { headers: HEADERS });
   return res.data;
 }
-
-export async function sendViaSendGrid({ from, to, subject, html }) {
+export async function sendViaSendGrid({
+  from,
+  to,
+  subject,
+  html,
+  sendgridAttachments = [],
+}) {
   const data = {
     personalizations: [
       {
-        to: Array.isArray(to) ? to.map((email) => ({ email })) : [{ email: to }],
+        to: Array.isArray(to)
+          ? to.map((email) => ({ email }))
+          : [{ email: to }],
         subject,
       },
     ],
@@ -35,6 +42,18 @@ export async function sendViaSendGrid({ from, to, subject, html }) {
     content: [{ type: "text/html", value: html }],
   };
 
-  const res = await axios.post(`${SENDGRID_API}/mail/send`, data, { headers: HEADERS });
+  // ✅ Attachments handling
+  if (sendgridAttachments.length > 0) {
+    data.attachments = sendgridAttachments.map((att) => ({
+      content: att.content, // Base64 encoded
+      filename: att.filename,
+      type: att.type, // mime type
+      disposition: "attachment",
+    }));
+  }
+
+  const res = await axios.post(`${SENDGRID_API}/mail/send`, data, {
+    headers: HEADERS,
+  });
   return res.data;
 }
