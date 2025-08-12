@@ -4,6 +4,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import Prisma from "../db/db.js";
 
 const MAX_INT = Number.MAX_SAFE_INTEGER;
+console.log("MAX_INT:", MAX_INT); // Debugging line to check MAX_INT value
 
 const planLimits = {
   FREE: {
