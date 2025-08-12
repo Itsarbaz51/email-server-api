@@ -114,7 +114,7 @@ export const incomingServer = new SMTPServer({
               body: parsed.text || parsed.html || "",
               receivedAt: new Date(),
               subject: parsed.subject || "(No Subject)",
-              messageId: parsed.messageId || null, // ✅ Store Gmail/SMTP message ID
+              messageId: parsed.messageId || null, 
             },
           });
 
@@ -137,8 +137,8 @@ export const incomingServer = new SMTPServer({
                   data: {
                     mailboxId: mailbox.id,
                     userId: mailbox.userId,
-                    emailId: received.id,
                     fileName: cleanName,
+                    receivedEmailId: received.id,
                     fileSizeMB: Math.round(
                       (att.size || att.content?.length || 0) / (1024 * 1024)
                     ),
