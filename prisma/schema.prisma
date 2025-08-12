@@ -67,26 +67,26 @@ model User {
 }
 
 model Subscription {
-  id                String          @id @default(cuid())
+  id                String           @id @default(cuid())
   plan              String // "FREE", "BASIC", "PREMIUM"
   billingCycle      String // "MONTHLY" or "YEARLY"
-  maxMailboxes      Int             @default(1)
-  maxDomains        Int             @default(1)
-  maxSentEmails     Int             @default(100) // New field: max sent emails allowed
-  maxReceivedEmails Int             @default(1000) // New field: max received emails allowed
-  allowedStorageMB  Int             @default(1024)
-  storageUsedMB     Int             @default(0)
-  paymentStatus     PaymentStatus   @default(PENDING)
+  maxMailboxes      Int              @default(1)
+  maxDomains        Int              @default(1)
+  maxSentEmails     Int              @default(100) // New field: max sent emails allowed
+  maxReceivedEmails Int              @default(1000) // New field: max received emails allowed
+  allowedStorageMB  Int              @default(1024)
+  storageUsedMB     Int              @default(0)
+  paymentStatus     PaymentStatus    @default(PENDING)
   paymentProvider   paymentProviders @default(RAZORPAY)
   paymentId         String?
   razorpayOrderId   String?
   razorpayPaymentId String?
   razorpayStatus    String?
-  startDate         DateTime        @default(now())
+  startDate         DateTime         @default(now())
   endDate           DateTime
-  isActive          Boolean         @default(true)
+  isActive          Boolean          @default(true)
   userId            String
-  user              User            @relation(fields: [userId], references: [id])
+  user              User             @relation(fields: [userId], references: [id])
 }
 
 model Domain {
@@ -158,9 +158,8 @@ model SentEmail {
   status    String   @default("SENT") // SENT, FAILED, BOUNCED
   sentAt    DateTime @default(now())
 
-
-  mailbox Mailbox @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mailbox     Mailbox      @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   attachments Attachment[]
 
   @@map("sent_emails")
@@ -173,29 +172,33 @@ model ReceivedEmail {
   fromEmail  String
   subject    String
   body       String
+  messageId  String
   receivedAt DateTime @default(now())
 
-  mailbox Mailbox @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mailbox     Mailbox      @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attachments Attachment[]
 
   @@map("received_emails")
 }
 
 model Attachment {
-  id         String   @id @default(cuid())
-  mailboxId  String
-  userId     String
-  emailId    String? // Optional link to SentEmail or ReceivedEmail
-  fileName   String
-  fileSizeMB Int
-  mimeType   String
-  s3Key      String // S3 object path
-  s3Bucket   String
-  createdAt  DateTime @default(now())
+  id              String   @id @default(cuid())
+  mailboxId       String
+  userId          String
+  emailId         String?
+  receivedEmailId String? // Nullable for sent emails
+  fileName        String
+  fileSizeMB      Int
+  mimeType        String
+  s3Key           String // S3 object path
+  s3Bucket        String
+  createdAt       DateTime @default(now())
 
-  mailbox Mailbox @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sentEmail SentEmail? @relation(fields: [emailId], references: [id])
+  mailbox       Mailbox        @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sentEmail     SentEmail?     @relation(fields: [emailId], references: [id])
+  receivedEmail ReceivedEmail? @relation(fields: [receivedEmailId], references: [id])
 
   @@map("attachments")
 }

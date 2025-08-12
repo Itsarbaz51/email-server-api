@@ -42,6 +42,9 @@ export const incomingServer = new SMTPServer({
         select: { id: true },
       });
 
+      // Check subscription
+      await verifySubscription(mailbox.userId, "receiveMail");
+
       if (!mailbox) {
         return callback(new Error("Mailbox not found or domain unverified"));
       }
@@ -100,17 +103,18 @@ export const incomingServer = new SMTPServer({
 
           if (!mailbox) continue;
 
-          // Check subscription
-          await verifySubscription(mailbox.userId, "receiveMail");
+          
 
+          // Save received email
           const received = await Prisma.receivedEmail.create({
             data: {
               mailboxId: mailbox.id,
               userId: mailbox.userId,
               fromEmail: fromAddress,
+              body: parsed.text || parsed.html || "",
+              receivedAt: new Date(),
               subject: parsed.subject || "(No Subject)",
-              textBody: parsed.text || "",
-              htmlBody: parsed.html || "",
+              messageId: parsed.messageId || null, // ✅ Store Gmail/SMTP message ID
             },
           });
 
@@ -121,40 +125,31 @@ export const incomingServer = new SMTPServer({
               const cleanName = filename.replace(/\s+/g, "_");
               const s3Key = generateS3Key("attachments", cleanName);
 
-              if (parsed.attachments?.length) {
-                for (const att of parsed.attachments) {
-                  const filename = att.filename || "attachment";
-                  const cleanName = filename.replace(/\s+/g, "_");
-                  const s3Key = generateS3Key("attachments", cleanName);
+              try {
+                await uploadToS3({
+                  bucket: attachmentsBucket,
+                  key: s3Key,
+                  body: att.content,
+                  contentType: att.contentType || "application/octet-stream",
+                });
 
-                  try {
-                    await uploadToS3({
-                      bucket: attachmentsBucket,
-                      key: s3Key,
-                      body: att.content,
-                      contentType: att.contentType || "application/octet-stream",
-                    });
-
-                    await Prisma.attachment.create({
-                      data: {
-                        mailboxId: mailbox.id,
-                        userId: mailbox.userId,
-                        emailId: received.id,
-                        fileName: cleanName,
-                        fileSizeMB: Math.round(
-                          (att.size || att.content?.length || 0) / (1024 * 1024)
-                        ),
-                        mimeType: att.contentType || "application/octet-stream",
-                        s3Key,
-                        s3Bucket: attachmentsBucket,
-                      },
-                    });
-                  } catch (err) {
-                    console.error(`❌ Failed to upload attachment ${filename}:`, err);
-                  }
-                }
+                await Prisma.attachment.create({
+                  data: {
+                    mailboxId: mailbox.id,
+                    userId: mailbox.userId,
+                    emailId: received.id,
+                    fileName: cleanName,
+                    fileSizeMB: Math.round(
+                      (att.size || att.content?.length || 0) / (1024 * 1024)
+                    ),
+                    mimeType: att.contentType || "application/octet-stream",
+                    s3Key,
+                    s3Bucket: attachmentsBucket,
+                  },
+                });
+              } catch (err) {
+                console.error(`❌ Failed to upload attachment ${filename}:`, err);
               }
-
             }
           }
 
