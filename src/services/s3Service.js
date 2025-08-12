@@ -2,6 +2,8 @@
 import AWS from "aws-sdk";
 import { v4 as uuidv4 } from "uuid";
 
+console.log("AWS S3 Service Initialized");
+
 console.log(
   "accessKeyId:", process.env.AWS_ACCESS_KEY_ID,
   "secretAccessKey:", process.env.AWS_SECRET_ACCESS_KEY,
