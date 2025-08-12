@@ -27,7 +27,7 @@ export const sendEmail = asyncHandler(async (req, res) => {
     where: {
       id: senderMailboxId,
       emailAddress: from.toLowerCase(),
-      domain: { status: true },
+      domain: { status: "VERIFIED" },
     },
     include: { domain: { select: { name: true } } },
   });
@@ -118,7 +118,7 @@ export const sendEmail = asyncHandler(async (req, res) => {
 
   const recipient = Array.isArray(to) ? to[0] : to;
   const toMailbox = await Prisma.mailbox.findFirst({
-    where: { emailAddress: recipient.toLowerCase(), domain: { verified: true } },
+    where: { emailAddress: recipient.toLowerCase(), domain: { status: "VERIFIED" } },
     select: { id: true, userId: true },
   });
 
@@ -203,7 +203,7 @@ export const getAllMails = asyncHandler(async (req, res) => {
     }
   
     // ✅ Check if mailbox belongs to the logged-in user
-    const mailbox = await prisma.mailbox.findFirst({
+    const mailbox = await Prisma.mailbox.findFirst({
       where: { id: mailboxId, userId },
     });
     if (!mailbox) {
@@ -211,13 +211,13 @@ export const getAllMails = asyncHandler(async (req, res) => {
     }
   
     // 📩 Fetch received emails
-    const received = await prisma.receivedEmail.findMany({
+    const received = await Prisma.receivedEmail.findMany({
       where: { mailboxId, userId },
       orderBy: { receivedAt: "desc" },
     });
   
     // 📤 Fetch sent emails
-    const sent = await prisma.sentEmail.findMany({
+    const sent = await Prisma.sentEmail.findMany({
       where: { mailboxId, userId },
       orderBy: { sentAt: "desc" },
     });
