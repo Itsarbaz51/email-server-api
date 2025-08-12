@@ -57,28 +57,31 @@ export const sendEmail = [
 
     // Upload attachments if any
     let attachmentRecords = [];
-    if (req.files && req.files.length > 0) {
-      for (let file of req.files) {
-        try {
-          const attKey = `emails/sent/${fromMailbox.user.id}/${Date.now()}-${file.originalname.replace(/\s+/g, "_")}`;
-          await uploadToS3({
-            bucket: process.env.ATTACHMENTS_BUCKET,
-            key: attKey,
-            body: file.buffer,
-            contentType: file.mimetype,
-          });
-          attachmentRecords.push({
-            fileName: file.originalname,
-            fileSizeMB: Math.round(file.size / (1024 * 1024)),
-            mimeType: file.mimetype,
-            s3Key: attKey,
-            s3Bucket: process.env.ATTACHMENTS_BUCKET,
-          });
-        } catch (err) {
-          console.error("S3 upload (attachment) failed:", err);
-        }
-      }
+   if (req.files && req.files.length > 0) {
+  for (let file of req.files) {
+    try {
+      const attKey = `emails/sent/${fromMailbox.user.id}/${Date.now()}-${file.originalname.replace(/\s+/g, "_")}`;
+      await uploadToS3({
+        bucket: process.env.ATTACHMENTS_BUCKET,
+        key: attKey,
+        body: file.buffer,
+        contentType: file.mimetype,
+      });
+      attachmentRecords.push({
+        mailboxId: fromMailbox.id,          // ✅ added
+        userId: fromMailbox.user.id,        // ✅ added
+        fileName: file.originalname,
+        fileSizeMB: Math.round(file.size / (1024 * 1024)),
+        mimeType: file.mimetype,
+        s3Key: attKey,
+        s3Bucket: process.env.ATTACHMENTS_BUCKET,
+      });
+    } catch (err) {
+      console.error("S3 upload (attachment) failed:", err);
     }
+  }
+}
+
 
     // Prepare attachments for SendGrid
     const sendgridAttachments = req.files && req.files.length > 0
