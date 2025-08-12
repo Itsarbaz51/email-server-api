@@ -18,7 +18,7 @@ const s3 = new AWS.S3({
  * @returns {Promise<string>} - S3 object URL
  */
 export async function uploadToS3({ bucket, key, body, contentType }) {
-  console.log(bucket, key, body, contentType);
+  console.log("bucket",bucket, "key",key, "body",body, "contentType",contentType);
   
   if (!bucket || !key || !body) {
     throw new Error("❌ Missing required parameters for S3 upload");
