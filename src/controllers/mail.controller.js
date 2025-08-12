@@ -108,8 +108,8 @@ export const sendEmail = [
       // Store FAILED email
       await Prisma.sentEmail.create({
         data: {
-          mailboxId: { connect: { id: fromMailbox.id } },
-          userId: { connect: { id: fromMailbox.user.id } },
+          mailboxId:fromMailbox.id,
+          userId:fromMailbox.user.id,
           toEmail: Array.isArray(to) ? (to[0] || "") : to,
           subject,
           body: bodyS3Url,
@@ -146,8 +146,8 @@ export const sendEmail = [
     if (toMailbox) {
       await Prisma.receivedEmail.create({
         data: {
-          mailboxId: { connect: { id: toMailbox.id } },
-          userId: { connect: { id: toMailbox.userId } },
+          mailboxId: toMailbox.id,
+          userId: toMailbox.userId,
           fromEmail: from,
           subject,
           body: bodyS3Url,
