@@ -102,6 +102,9 @@ export const sendEmail = [
     } catch (err) {
       console.error("sendViaSendGrid error:", err);
 
+      console.log("fromMailbox", fromMailbox);
+      
+
       // Store FAILED email
       await Prisma.sentEmail.create({
         data: {
@@ -118,6 +121,8 @@ export const sendEmail = [
       throw new ApiError(500, "Failed to send email");
     }
 
+    console.log(fromMailbox);
+    
     // Store SENT email
     const sent = await Prisma.sentEmail.create({
       data: {
