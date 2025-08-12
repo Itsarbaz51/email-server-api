@@ -9,6 +9,8 @@ import multer from "multer";
 
 
 const upload = multer({ storage: multer.memoryStorage() });
+console.log("upload", upload);
+
 
 // sendEmail - API for authenticated mailbox to send outbound email.
 export const sendEmail = [
