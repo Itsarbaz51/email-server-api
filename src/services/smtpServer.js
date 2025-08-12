@@ -1,4 +1,3 @@
-// smtp/incomingServer.js
 import { simpleParser } from "mailparser";
 import { SMTPServer } from "smtp-server";
 import Prisma from "../db/db.js";
@@ -9,7 +8,7 @@ const maxEmailSize = Number(process.env.MAX_EMAIL_SIZE_BYTES) || 25 * 1024 * 102
 const attachmentsBucket = process.env.ATTACHMENTS_BUCKET;
 
 if (!attachmentsBucket) {
-  console.warn("⚠️ ATTACHMENTS_BUCKET is not set. Attachments will fail to upload.");
+  console.error("❌ ATTACHMENTS_BUCKET env variable is missing. Attachments upload will fail.");
 }
 
 export const incomingServer = new SMTPServer({
@@ -22,11 +21,10 @@ export const incomingServer = new SMTPServer({
     callback();
   },
 
-  onMailFrom(address, session, callback) {
+  async onMailFrom(address, session, callback) {
     if (!address?.address) {
       return callback(new Error("Invalid MAIL FROM"));
     }
-    console.log("MAIL FROM:", address.address);
     callback();
   },
 
@@ -34,8 +32,24 @@ export const incomingServer = new SMTPServer({
     if (!address?.address) {
       return callback(new Error("Invalid RCPT TO"));
     }
-    console.log("RCPT TO:", address.address);
-    callback();
+
+    try {
+      const mailbox = await Prisma.mailbox.findFirst({
+        where: {
+          emailAddress: address.address.toLowerCase(),
+          domain: { status: "VERIFIED" },
+        },
+        select: { id: true },
+      });
+
+      if (!mailbox) {
+        return callback(new Error("Mailbox not found or domain unverified"));
+      }
+      callback();
+    } catch (err) {
+      console.error("❌ onRcptTo DB error:", err);
+      callback(new Error("Temporary server error"));
+    }
   },
 
   onData(stream, session, callback) {
@@ -45,7 +59,6 @@ export const incomingServer = new SMTPServer({
     stream.on("data", (chunk) => {
       size += chunk.length;
       if (size > maxEmailSize) {
-        console.error("❌ Email too large");
         stream.destroy(new Error("Email size exceeds limit"));
         return;
       }
@@ -53,7 +66,7 @@ export const incomingServer = new SMTPServer({
     });
 
     stream.on("error", (err) => {
-      console.error("SMTP stream error:", err);
+      console.error("❌ SMTP stream error:", err);
     });
 
     stream.on("end", async () => {
@@ -71,7 +84,7 @@ export const incomingServer = new SMTPServer({
           null;
 
         if (!fromAddress) {
-          return callback(new Error("Missing sender"));
+          return callback(new Error("Missing sender address"));
         }
 
         for (const rcpt of session.envelope.rcptTo || []) {
@@ -80,16 +93,14 @@ export const incomingServer = new SMTPServer({
           const mailbox = await Prisma.mailbox.findFirst({
             where: {
               emailAddress: toAddress,
-              domain: { verified: true },
+              domain: { status: "VERIFIED" },
             },
             select: { id: true, userId: true },
           });
 
-          if (!mailbox) {
-            console.log(`📭 No mailbox found or domain unverified: ${toAddress}`);
-            continue;
-          }
-          
+          if (!mailbox) continue;
+
+          // Check subscription
           await verifySubscription(mailbox.userId, "receiveMail");
 
           const received = await Prisma.receivedEmail.create({
@@ -103,41 +114,51 @@ export const incomingServer = new SMTPServer({
             },
           });
 
+          // Process attachments
           if (parsed.attachments?.length) {
             for (const att of parsed.attachments) {
               const filename = att.filename || "attachment";
-              const s3Key = generateS3Key("attachments", filename.replace(/\s+/g, "_"));
+              const cleanName = filename.replace(/\s+/g, "_");
+              const s3Key = generateS3Key("attachments", cleanName);
 
-              try {
-                await uploadToS3({
-                  bucket: attachmentsBucket,
-                  key: s3Key,
-                  body: att.content,
-                  contentType: att.contentType || "application/octet-stream",
-                });
+              if (parsed.attachments?.length) {
+                for (const att of parsed.attachments) {
+                  const filename = att.filename || "attachment";
+                  const cleanName = filename.replace(/\s+/g, "_");
+                  const s3Key = generateS3Key("attachments", cleanName);
 
-                const s3Url = `https://${attachmentsBucket}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
+                  try {
+                    await uploadToS3({
+                      bucket: attachmentsBucket,
+                      key: s3Key,
+                      body: att.content,
+                      contentType: att.contentType || "application/octet-stream",
+                    });
 
-                await Prisma.attachment.create({
-                  data: {
-                    mailboxId: mailbox.id,
-                    userId: mailbox.userId,
-                    emailId: received.id,
-                    fileName: filename,
-                    fileSizeKB: Math.ceil((att.size || att.content?.length || 0) / 1024),
-                    mimeType: att.contentType || "application/octet-stream",
-                    s3Key,
-                    s3Bucket: attachmentsBucket,
-                    s3Url,
-                  },
-                });
-              } catch (err) {
-                console.error(`❌ Failed to upload attachment ${filename}:`, err);
+                    await Prisma.attachment.create({
+                      data: {
+                        mailboxId: mailbox.id,
+                        userId: mailbox.userId,
+                        emailId: received.id,
+                        fileName: cleanName,
+                        fileSizeMB: Math.round(
+                          (att.size || att.content?.length || 0) / (1024 * 1024)
+                        ),
+                        mimeType: att.contentType || "application/octet-stream",
+                        s3Key,
+                        s3Bucket: attachmentsBucket,
+                      },
+                    });
+                  } catch (err) {
+                    console.error(`❌ Failed to upload attachment ${filename}:`, err);
+                  }
+                }
               }
+
             }
           }
 
-          console.log(`✅ Stored email id=${received.id} for ${toAddress}`);
+          console.log(`✅ Email stored: id=${received.id} to=${toAddress}`);
         }
 
         callback();
