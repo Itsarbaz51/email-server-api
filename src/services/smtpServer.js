@@ -50,7 +50,7 @@ export const incomingServer = new SMTPServer({
       if (!mailbox) return callback(new Error("Mailbox not found or domain unverified"));
 
       // subscription check (throws ApiError if invalid)
-      await checkSubscriptionForUser(mailbox.userId, "receiveMail");
+      await verifySubscription(mailbox.userId, "receiveMail");
 
       return callback(); // accept recipient
     } catch (err) {
