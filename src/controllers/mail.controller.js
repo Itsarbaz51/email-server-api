@@ -60,7 +60,7 @@ export const sendEmail = [
    if (req.files && req.files.length > 0) {
   for (let file of req.files) {
     try {
-      const attKey = `emails/sent/${fromMailbox.user.id}/${Date.now()}-${file.originalname.replace(/\s+/g, "_")}`;
+      const attKey = `emails/sent/${fromMailbox.user.email}/${Date.now()}-${file.originalname.replace(/\s+/g, "_")}`;
       await uploadToS3({
         bucket: process.env.ATTACHMENTS_BUCKET,
         key: attKey,
