@@ -14,6 +14,8 @@ const upload = multer({ storage: multer.memoryStorage() });
 export const sendEmail = [
   upload.array("attachments"), // Handle files from Postman (form-data)
   asyncHandler(async (req, res) => {
+    console.log(req.body);
+    
     const { from, to, subject, body } = req.body;
     const senderMailboxId = req.mailbox?.id;
 
