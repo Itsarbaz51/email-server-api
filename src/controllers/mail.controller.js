@@ -9,15 +9,11 @@ import multer from "multer";
 
 
 const upload = multer({ storage: multer.memoryStorage() });
-console.log("upload", upload);
-
 
 // sendEmail - API for authenticated mailbox to send outbound email.
 export const sendEmail = [
   upload.array("attachments"), // Handle files from Postman (form-data)
   asyncHandler(async (req, res) => {
-    console.log(req.body);
-    
     const { from, to, subject, body } = req.body;
     const senderMailboxId = req.mailbox?.id;
 
@@ -36,7 +32,7 @@ export const sendEmail = [
       },
       include: {
         domain: { select: { name: true } },
-        user: { select: { email: true } },
+        user: { select: { id: true, email: true } },
       },
     });
 
@@ -64,8 +60,8 @@ export const sendEmail = [
     if (req.files && req.files.length > 0) {
       for (let file of req.files) {
         try {
-          const attKey = `emails/sent/${fromMailbox.userId}/${Date.now()}-${file.originalname.replace(/\s+/g, "_")}`;
-          const fileUrl = await uploadToS3({
+          const attKey = `emails/sent/${fromMailbox.user.id}/${Date.now()}-${file.originalname.replace(/\s+/g, "_")}`;
+          await uploadToS3({
             bucket: process.env.ATTACHMENTS_BUCKET,
             key: attKey,
             body: file.buffer,
@@ -94,7 +90,7 @@ export const sendEmail = [
         }))
       : [];
 
-    // Send email via SendGrid
+    // Try sending email
     try {
       await sendViaSendGrid({
         from: { email: from, name: fromMailbox.name || from },
@@ -105,34 +101,37 @@ export const sendEmail = [
       });
     } catch (err) {
       console.error("sendViaSendGrid error:", err);
+
+      // Store FAILED email
       await Prisma.sentEmail.create({
-  data: {
-    mailboxId: fromMailbox.id  ,
-    userId: fromMailbox.userId  ,
-    toEmail: Array.isArray(to) ? (to[0] || "") : to,
-    subject,
-    body: bodyS3Url,
-    status: "FAILED",
-    attachments: { create: attachmentRecords },
-  },
-});
+        data: {
+          mailbox: { connect: { id: fromMailbox.id } },
+          user: { connect: { id: fromMailbox.user.id } },
+          toEmail: Array.isArray(to) ? (to[0] || "") : to,
+          subject,
+          body: bodyS3Url,
+          status: "FAILED",
+          attachments: { create: attachmentRecords },
+        },
+      });
+
       throw new ApiError(500, "Failed to send email");
     }
 
-    // Save sent email record
+    // Store SENT email
     const sent = await Prisma.sentEmail.create({
-  data: {
-    mailboxId:fromMailbox.id ,
-    userId: fromMailbox.userId  ,
-    toEmail: Array.isArray(to) ? (to[0] || "") : to,
-    subject,
-    body: bodyS3Url,
-    status: "SENT",
-    attachments: { create: attachmentRecords },
-  },
-});
+      data: {
+        mailbox: { connect: { id: fromMailbox.id } },
+        user: { connect: { id: fromMailbox.user.id } },
+        toEmail: Array.isArray(to) ? (to[0] || "") : to,
+        subject,
+        body: bodyS3Url,
+        status: "SENT",
+        attachments: { create: attachmentRecords },
+      },
+    });
 
-    // Create received email record if mailbox exists
+    // Create received email record if recipient exists
     const recipient = Array.isArray(to) ? to[0] : to;
     const toMailbox = await Prisma.mailbox.findFirst({
       where: { emailAddress: recipient.toLowerCase(), domain: { status: "VERIFIED" } },
@@ -142,8 +141,8 @@ export const sendEmail = [
     if (toMailbox) {
       await Prisma.receivedEmail.create({
         data: {
-          mailboxId: toMailbox.id,
-          userId: toMailbox.userId,
+          mailbox: { connect: { id: toMailbox.id } },
+          user: { connect: { id: toMailbox.userId } },
           fromEmail: from,
           subject,
           body: bodyS3Url,
@@ -155,6 +154,7 @@ export const sendEmail = [
     return res.status(201).json(new ApiResponse(201, "Email sent", { sentId: sent.id }));
   }),
 ];
+
 
 
 // receivedEmail - returns received + sent for a mailbox (mailbox auth required)
