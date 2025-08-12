@@ -126,6 +126,7 @@ export const sendEmail = asyncHandler(async (req, res) => {
       toEmail: Array.isArray(to) ? (to[0] || "") : to,
       subject,
       bodyS3Url,
+      body: bodyS3Url,
       status: "SENT",
       attachments: { create: attachmentRecords },
     },
