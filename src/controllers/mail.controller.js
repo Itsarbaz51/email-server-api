@@ -107,8 +107,8 @@ export const sendEmail = [
       console.error("sendViaSendGrid error:", err);
       await Prisma.sentEmail.create({
   data: {
-    mailboxId: { connect: { id: fromMailbox.id } },
-    userId: { connect: { id: fromMailbox.userId } },
+    mailboxId: fromMailbox.id  ,
+    userId: fromMailbox.userId  ,
     toEmail: Array.isArray(to) ? (to[0] || "") : to,
     subject,
     body: bodyS3Url,
@@ -122,8 +122,8 @@ export const sendEmail = [
     // Save sent email record
     const sent = await Prisma.sentEmail.create({
   data: {
-    mailboxId: { connect: { id: fromMailbox.id } },
-    userId: { connect: { id: fromMailbox.userId } },
+    mailboxId:fromMailbox.id ,
+    userId: fromMailbox.userId  ,
     toEmail: Array.isArray(to) ? (to[0] || "") : to,
     subject,
     body: bodyS3Url,
