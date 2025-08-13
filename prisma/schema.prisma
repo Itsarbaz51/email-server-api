@@ -46,15 +46,16 @@ enum PaymentStatus {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  phone     String  @unique
-  password  String
-  name      String
-  role      UserRole @default(ADMIN)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  phone              String   @unique
+  password           String
+  name               String
+  termsAndConditions Boolean  @default(false)
+  role               UserRole @default(ADMIN)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   // Relations
   subscriptions  Subscription[]
