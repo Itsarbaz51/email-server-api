@@ -103,11 +103,12 @@ const signup = asyncHandler(async (req, res) => {
 
 // login
 const login = asyncHandler(async (req, res) => {
-  let { email, password } = req.body;
-  if (!email || !password) return ApiError.send(res, 400, "Email and password are required");
+  let { emailOrPhone, password } = req.body;
+  if (!emailOrPhone || !password) return ApiError.send(res, 400, "Email and password are required");
   // Try User table
   const user = await Prisma.user.findUnique({
-    where: { email },
+    where: { OR: [{ email: emailOrPhone.toLowerCase() }, { phone: emailOrPhone }]
+     },
     select: { id: true, email: true, password: true, role: true, name: true },
   });
 
