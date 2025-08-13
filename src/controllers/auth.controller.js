@@ -80,8 +80,8 @@ const signupAdmin = asyncHandler(async (req, res) => {
 
 // sigup public route admin
 const signup = asyncHandler(async (req, res) => {
-  const { name, email, phone, password } = req.body;
-  if (![name, email, phone, password].every((v) => v && String(v).trim().length > 0)) {
+  const { name, email, phone, password, termsAndConditions } = req.body;
+  if (![name, email, phone, password, termsAndConditions].every((v) => v && String(v).trim().length > 0)) {
     return ApiError.send(res, 400, "All fields are required");
   }
 
@@ -93,7 +93,7 @@ const signup = asyncHandler(async (req, res) => {
 
 
   const user = await Prisma.user.create({
-    data: { name, email, phone, password: hashed, role: "ADMIN" },
+    data: { name, email, phone, password: hashed, role: "ADMIN", termsAndConditions, isActive: true },
     select: { id: true, name: true, email: true, role: true, createdAt: true },
   });
 
