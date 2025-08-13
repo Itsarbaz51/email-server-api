@@ -106,7 +106,7 @@ const login = asyncHandler(async (req, res) => {
   let { emailOrPhone, password } = req.body;
   if (!emailOrPhone || !password) return ApiError.send(res, 400, "Email and password are required");
   // Try User table
-  const user = await Prisma.user.findUnique({
+  const user = await Prisma.user.findFirst({
     where: { OR: [{ email: emailOrPhone.toLowerCase() }, { phone: emailOrPhone }]
      },
     select: { id: true, email: true, password: true, role: true, name: true },
