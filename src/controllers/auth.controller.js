@@ -86,6 +86,8 @@ const signup = asyncHandler(async (req, res) => {
   }
 
   const exists = await Prisma.user.findFirst({ where: { OR: [{ email }, { phone }] } });
+
+  if (!exists) return ApiError.send(res, 500, "User find failed.");
   
   if (exists) return ApiError.send(res, 409, "Email already registered");
 
