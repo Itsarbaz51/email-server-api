@@ -85,7 +85,10 @@ const signup = asyncHandler(async (req, res) => {
     return ApiError.send(res, 400, "All fields are required");
   }
 
-  const exists = await Prisma.user.findUnique({ where: { OR: [{ email }, { phone }] } });
+  const exists = await Prisma.user.findFirst({ where: { OR: [{ email }, { phone }] } });
+
+  if (!exists) return ApiError.send(res, 500, "User find failed.");
+  
   if (exists) return ApiError.send(res, 409, "Email already registered");
 
   const hashed = await hashPassword(password);
