@@ -80,17 +80,20 @@ const signupAdmin = asyncHandler(async (req, res) => {
 
 // sigup public route admin
 const signup = asyncHandler(async (req, res) => {
-  const { name, email, password } = req.body;
-  if (![name, email, password].every((v) => v && String(v).trim().length > 0)) {
+  const { name, email, phone, password } = req.body;
+  if (![name, email, phone, password].every((v) => v && String(v).trim().length > 0)) {
     return ApiError.send(res, 400, "All fields are required");
   }
 
-  const exists = await Prisma.user.findUnique({ where: { email } });
+  const exists = await Prisma.user.findUnique({ where: { OR: [{ email }, { phone }] } });
   if (exists) return ApiError.send(res, 409, "Email already registered");
 
   const hashed = await hashPassword(password);
+  if (!hashed) return ApiError.send(res, 500, "Password hashing failed");
+
+
   const user = await Prisma.user.create({
-    data: { name, email, password: hashed, role: "ADMIN" },
+    data: { name, email, phone, password: hashed, role: "ADMIN" },
     select: { id: true, name: true, email: true, role: true, createdAt: true },
   });
 
