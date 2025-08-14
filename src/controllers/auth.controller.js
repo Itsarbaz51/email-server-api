@@ -16,8 +16,6 @@ const isProd = process.env.NODE_ENV === "production";
 const cookieOptions = {
   httpOnly: true,
   secure: false,
-  sameSite: "None",
-  path: "/"
 };
 
 
