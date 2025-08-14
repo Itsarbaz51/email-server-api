@@ -12,19 +12,21 @@ import {
 
 
 const accessTokenOptions = {
-   httpOnly: true,
-  secure: false,
-  sameSite: "None",
-  path: "/",
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-};
-const refreshTokenOptions = {
-   httpOnly: true,
-  secure: false,
-  sameSite: "None",
+  httpOnly: true,
+  secure: false,           // set to true only if using HTTPS
+  sameSite: "Lax",         // use "Lax" for localhost-to-IP communication
   path: "/",
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
+
+const refreshTokenOptions = {
+  httpOnly: true,
+  secure: false,
+  sameSite: "Lax",
+  path: "/",
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+};
+
 
 
 
@@ -116,13 +118,14 @@ const login = asyncHandler(async (req, res) => {
 
     const { password: _, ...userSafe } = user;
     return res
-      .status(200)
-      .cookie("accessToken", accessToken, accessTokenOptions)
-      .cookie("refreshToken", refreshToken, refreshTokenOptions)
-      .json(new ApiResponse(200, "Login successful", {
-        user: userSafe,
-        accessTokenExpiresIn: process.env.ACCESS_TOKEN_EXPIRY || "7d",
-      }));
+  .status(200)
+  .cookie("accessToken", accessToken, accessTokenOptions)
+  .cookie("refreshToken", refreshToken, refreshTokenOptions)
+  .json(new ApiResponse(200, "Login successful", {
+    user: userSafe,
+    accessTokenExpiresIn: process.env.ACCESS_TOKEN_EXPIRY || "7d",
+  }));
+
 });
 
 // refreshAccessToken generate
