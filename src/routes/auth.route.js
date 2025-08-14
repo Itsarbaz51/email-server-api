@@ -5,7 +5,7 @@ import {
   login,
   refreshAccessToken,
   logout,
-  me,
+  getCurrentUser,
   changePassword,
   forgotPassword,
   resetPassword,
@@ -24,7 +24,7 @@ router.post("/reset-password", resetPassword);
 // Protected
 router.post("/signup-admin", requireAuth, requireRole(["SUPER_ADMIN"]), signupAdmin); // only SUPER_ADMIN can create admins
 router.post("/logout", requireAuth, logout);
-router.get("/me", requireAuth, me);
+router.get("/get-current-user", requireAuth, getCurrentUser);
 router.post("/change-password", requireAuth, changePassword);
 
 export default router;

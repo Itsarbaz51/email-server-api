@@ -202,12 +202,11 @@ const logout = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, "Logged out successfully"));
 });
 
-// get single
-const me = asyncHandler(async (req, res) => {
-  if (!req.user) return ApiError.send(res, 401, "Not authenticated");
+// get current user
+const getCurrentUser = asyncHandler(async (req, res) => {
+  if (!req.user.id) return ApiError.send(res, 401, "Not authenticated");
 
-  // If req.user.type === "mailbox" vs "user" depends on middleware implementation
-  if (req.user.model === "USER") {
+  if (req.user.model === "ADMIN" || req.user.model === "SUPER_ADMIN") {
     const user = await Prisma.user.findUnique({
       where: { id: req.user.id },
       select: { id: true, name: true, email: true, role: true, createdAt: true },
@@ -302,7 +301,7 @@ export {
   login,
   refreshAccessToken,
   logout,
-  me,
+  getCurrentUser,
   changePassword,
   forgotPassword,
   resetPassword,
