@@ -12,26 +12,28 @@ import {
 
 // set jwt token on cookies
 const setAuthCookies = (res, accessToken, refreshToken) => {
-  const cookieOptions = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production" ? true : false, // Use secure cookies in production
-  sameSite: process.env.NODE_ENV === "production" ? "Lax" : "None",
-  path: "/"
-};
+  const isProd = process.env.NODE_ENV === "production";
 
+  const cookieOptions = {
+    httpOnly: true,
+    secure: isProd,                          
+    sameSite: isProd ? "None" : "Lax",       
+    path: "/"
+  };
 
   // Access Token - 7 days
   res.cookie("accessToken", accessToken, {
     ...cookieOptions,
-    maxAge: 7 * 24 * 60 * 60 * 1000,
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
 
   // Refresh Token - 90 days
   res.cookie("refreshToken", refreshToken, {
     ...cookieOptions,
-    maxAge: 90 * 24 * 60 * 60 * 1000,
+    maxAge: 90 * 24 * 60 * 60 * 1000, // 90 days
   });
 };
+
 
 // signup on role base protected middleware by super-admin and admin role base 
 const signupAdmin = asyncHandler(async (req, res) => {
