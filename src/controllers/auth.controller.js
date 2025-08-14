@@ -10,11 +10,20 @@ import {
   hashPassword,
 } from "../utils/lib.js";
 
-const cookieOptions = {
+const cookieOptionsAccess = {
   httpOnly: true,
-  secure: true, // क्योंकि backend HTTPS है
-  sameSite: "none", // cross-origin cookies allow करने के लिए
+  secure: true,
+  sameSite: "none",
   path: "/",
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
+};
+
+const cookieOptionsRefresh = {
+  httpOnly: true,
+  secure: true,
+  sameSite: "none",
+  path: "/",
+  maxAge: 90 * 24 * 60 * 60 * 1000, // 90 days in ms
 };
 
 // signup on role base protected middleware by super-admin and admin role base
@@ -126,8 +135,8 @@ const login = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .cookie("accessToken", accessToken, cookieOptions)
-    .cookie("refreshToken", refreshToken, cookieOptions)
+    .cookie("accessToken", accessToken, cookieOptionsAccess)
+    .cookie("refreshToken", refreshToken, cookieOptionsRefresh)
     .json(
       new ApiResponse(200, "Login successful", {
         user: userSafe,

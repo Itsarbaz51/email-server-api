@@ -14,12 +14,12 @@ export const comparePassword = async (password, hashedPassword) => {
 
 export const generateAccessToken = (id, email, role) => {
   const secret = process.env.ACCESS_TOKEN_SECRET;
-  const expiresIn = process.env.ACCESS_TOKEN_EXPIRY || "7d";
+  const expiresIn = process.env.ACCESS_TOKEN_EXPIRY ;
   return jwt.sign({ id, email, role }, secret, { expiresIn:expiresIn });
 };
 
 export const generateRefreshToken = (id, email, role) => {
   const secret = process.env.REFRESH_TOKEN_SECRET;
-  const expiresIn = process.env.REFRESH_TOKEN_EXPIRY || "90d";
+  const expiresIn = process.env.REFRESH_TOKEN_EXPIRY;
   return jwt.sign({ id, email, role }, secret, { expiresIn:expiresIn });
 };
