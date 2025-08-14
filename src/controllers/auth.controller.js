@@ -10,8 +10,7 @@ import {
   hashPassword,
 } from "../utils/lib.js";
 
-// set jwt token on cookies
-const setAuthCookies = (res, accessToken, refreshToken) => {
+
   const isProd = process.env.NODE_ENV === "production";
 
   const cookieOptions = {
@@ -21,18 +20,6 @@ const setAuthCookies = (res, accessToken, refreshToken) => {
     path: "/"
   };
 
-  // Access Token - 7 days
-  res.cookie("accessToken", accessToken, {
-    ...cookieOptions,
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-  });
-
-  // Refresh Token - 90 days
-  res.cookie("refreshToken", refreshToken, {
-    ...cookieOptions,
-    maxAge: 90 * 24 * 60 * 60 * 1000, // 90 days
-  });
-};
 
 
 // signup on role base protected middleware by super-admin and admin role base 
@@ -119,10 +106,13 @@ const login = asyncHandler(async (req, res) => {
 
     const accessToken = generateAccessToken(user.id, user.email, user.role);
     const refreshToken = generateRefreshToken(user.id, user.email, user.role);
-    setAuthCookies(res, accessToken, refreshToken);
 
     const { password: _, ...userSafe } = user;
-    return res.status(200).json(new ApiResponse(200, "Login successful", {
+    return res
+    .status(200)
+    .cookie("accessToken", accessToken, cookieOptions)
+    .cookie("refreshToken", refreshToken, cookieOptions)
+    .json(new ApiResponse(200, "Login successful", {
       user: userSafe,
       accessTokenExpiresIn: process.env.ACCESS_TOKEN_EXPIRY || "7d",
     }));
@@ -141,9 +131,11 @@ const login = asyncHandler(async (req, res) => {
 
     const accessToken = generateAccessToken(mailbox.id, mailbox.emailAddress, "USER");
     const refreshToken = generateRefreshToken(mailbox.id, mailbox.emailAddress, "USER");
-    setAuthCookies(res, accessToken, refreshToken);
 
-    return res.status(200).json(new ApiResponse(200, "Mailbox login successful", {
+    return res.status(200)
+    .cookie("accessToken", accessToken, cookieOptions)
+    .cookie("refreshToken", refreshToken, cookieOptions)
+    .json(new ApiResponse(200, "Mailbox login successful", {
       mailbox: { id: mailbox.id, address: mailbox.emailAddress, domainId: mailbox.domainId },
       accessTokenExpiresIn: process.env.ACCESS_TOKEN_EXPIRY || "7d",
     }));
