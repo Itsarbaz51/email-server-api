@@ -11,14 +11,14 @@ import {
 } from "../utils/lib.js";
 
 
-  const isProd = process.env.NODE_ENV === "production";
+const isProd = process.env.NODE_ENV === "production";
 
-  const cookieOptions = {
-    httpOnly: true,
-    secure: false,                          
-    sameSite: "None",       
-    path: "/"
-  };
+const cookieOptions = {
+  httpOnly: true,
+  secure: false,
+  sameSite: "None",
+  path: "/"
+};
 
 
 
@@ -74,7 +74,7 @@ const signup = asyncHandler(async (req, res) => {
   }
 
   const exists = await Prisma.user.findFirst({ where: { OR: [{ email }, { phone }] } });
-  
+
   if (exists) return ApiError.send(res, 409, "Email already registered");
 
   const hashed = await hashPassword(password);
@@ -95,8 +95,9 @@ const login = asyncHandler(async (req, res) => {
   if (!emailOrPhone || !password) return ApiError.send(res, 400, "Email/Phone and password are required");
   // Try User table
   const user = await Prisma.user.findFirst({
-    where: { OR: [{ email: emailOrPhone.toLowerCase() }, { phone: emailOrPhone }]
-     },
+    where: {
+      OR: [{ email: emailOrPhone.toLowerCase() }, { phone: emailOrPhone }]
+    },
     select: { id: true, email: true, password: true, role: true, name: true },
   });
 
@@ -109,13 +110,13 @@ const login = asyncHandler(async (req, res) => {
 
     const { password: _, ...userSafe } = user;
     return res
-    .status(200)
-    .cookie("accessToken", accessToken, cookieOptions)
-    .cookie("refreshToken", refreshToken, cookieOptions)
-    .json(new ApiResponse(200, "Login successful", {
-      user: userSafe,
-      accessTokenExpiresIn: process.env.ACCESS_TOKEN_EXPIRY || "7d",
-    }));
+      .status(200)
+      .cookie("accessToken", accessToken, cookieOptions)
+      .cookie("refreshToken", refreshToken, cookieOptions)
+      .json(new ApiResponse(200, "Login successful", {
+        user: userSafe,
+        accessTokenExpiresIn: process.env.ACCESS_TOKEN_EXPIRY || "7d",
+      }));
   }
 
   // Else try mailbox login (if using mailbox model)
@@ -133,12 +134,12 @@ const login = asyncHandler(async (req, res) => {
     const refreshToken = generateRefreshToken(mailbox.id, mailbox.emailAddress, "USER");
 
     return res.status(200)
-    .cookie("accessToken", accessToken, cookieOptions)
-    .cookie("refreshToken", refreshToken, cookieOptions)
-    .json(new ApiResponse(200, "Mailbox login successful", {
-      mailbox: { id: mailbox.id, address: mailbox.emailAddress, domainId: mailbox.domainId },
-      accessTokenExpiresIn: process.env.ACCESS_TOKEN_EXPIRY || "7d",
-    }));
+      .cookie("accessToken", accessToken, cookieOptions)
+      .cookie("refreshToken", refreshToken, cookieOptions)
+      .json(new ApiResponse(200, "Mailbox login successful", {
+        mailbox: { id: mailbox.id, address: mailbox.emailAddress, domainId: mailbox.domainId },
+        accessTokenExpiresIn: process.env.ACCESS_TOKEN_EXPIRY || "7d",
+      }));
   }
 
   return ApiError.send(res, 404, "User or mailbox not found");
@@ -200,21 +201,16 @@ const getCurrentUser = asyncHandler(async (req, res) => {
 
   if (!req.user || !req.user.id)
     return ApiError.send(res, 401, "Not authenticated");
-
-  let userData;
-
-  if (req.user.model === "ADMIN" || req.user.model === "SUPER_ADMIN") {
+  
     const user = await Prisma.user.findUnique({
       where: { id: req.user.id },
       select: { id: true, name: true, email: true, role: true, createdAt: true },
     });
+    console.log("USER FROM DB:", user);
 
     if (!user) return ApiError.send(res, 404, "User not found");
 
-    userData = user;
-  }
-
-  return res.status(200).json(new ApiResponse(200, "OK", { user: userData }));
+  return res.status(200).json(new ApiResponse(200, "OK", { user: user }));
 });
 
 
