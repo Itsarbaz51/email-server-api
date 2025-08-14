@@ -11,11 +11,12 @@ import {
 } from "../utils/lib.js";
 
 
-
 const cookieOptions = {
-  httpOnly: true,
-  secure: false,
-  sameSite: "None"
+  httpOnly: true, // Browser JS se access na ho
+  secure: false, // Local dev me HTTPS nahi hota, isliye false
+  sameSite: "None", // Cross-site requests allow kare
+  path: "/",
+};
 };
 
 
