@@ -13,7 +13,7 @@ import {
 
 const cookieOptions = {
   httpOnly: true, // Browser JS se access na ho
-  secure: true, // Local dev me HTTPS nahi hota, isliye false
+  secure: false, // Local dev me HTTPS nahi hota, isliye false
   sameSite: "None", // Cross-site requests allow kare
   path: "/",
 };
