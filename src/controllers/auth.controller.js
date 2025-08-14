@@ -136,17 +136,17 @@ const login = asyncHandler(async (req, res) => {
   return res
     .cookie("accessToken", accessToken, {
       httpOnly: true,
-      secure: true,
+      secure: true, // dev में false रख सकते हो
       sameSite: "none",
       path: "/",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     })
     .cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: true,
+      secure: true, // dev में false रख सकते हो
       sameSite: "none",
       path: "/",
-      maxAge: 90 * 24 * 60 * 60 * 1000, // 90 days
+      maxAge: 90 * 24 * 60 * 60 * 1000,
     })
     .status(200)
     .json(
