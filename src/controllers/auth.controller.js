@@ -198,14 +198,14 @@ const logout = asyncHandler(async (req, res) => {
 const getCurrentUser = asyncHandler(async (req, res) => {
   if (!req.user || !req.user.id) return ApiError.send(res, 401, "Not authenticated");
 
-  let userData;
 
+  let userData;
   if (req.user.model === "ADMIN" || req.user.model === "SUPER_ADMIN") {
     const user = await Prisma.user.findUnique({
       where: { id: req.user.id },
       select: { id: true, name: true, email: true, role: true, createdAt: true },
     });
-    userData = { ...user, model: req.user.model };
+    userData = user
   }
   //  else {
   //   const mailbox = await Prisma.mailbox.findUnique({
@@ -223,7 +223,7 @@ const getCurrentUser = asyncHandler(async (req, res) => {
   //   };
   // }
 
-  return res.status(200).json(new ApiResponse(200, "OK", { user: userData }));
+  return res.status(200).json(new ApiResponse(200, "OK", userData));
 });
 
 // change pass
