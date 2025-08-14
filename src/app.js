@@ -5,18 +5,15 @@ import cookieParser from "cookie-parser";
 const app = express();
 const data = "10mb";
 
-app.use(
+app.options(
+  "*",
   cors({
-    origin: [
-      "https://localhost:5173", // your dev tunnel
-      "https://primewebdev.in", // production frontend
-    ],
+    origin: ["https://localhost:5173", "https://primewebdev.in"],
     credentials: true, // allow cookies
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
-
 app.use(express.json({ limit: data }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
