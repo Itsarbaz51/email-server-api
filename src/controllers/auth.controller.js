@@ -195,25 +195,34 @@ const logout = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, "Logged out successfully"));
 });
 
-// get current user
 const getCurrentUser = asyncHandler(async (req, res) => {
-  console.log(req.user.id);
-  
-  if (!req.user) return ApiError.send(res, 401, "Not authenticated");
+  if (!req.user || !req.user.id) return ApiError.send(res, 401, "Not authenticated");
+
+  let userData;
 
   if (req.user.model === "ADMIN" || req.user.model === "SUPER_ADMIN") {
     const user = await Prisma.user.findUnique({
       where: { id: req.user.id },
       select: { id: true, name: true, email: true, role: true, createdAt: true },
     });
-    return res.status(200).json(new ApiResponse(200, "OK", { user }));
+    userData = { ...user, model: req.user.model };
   } else {
     const mailbox = await Prisma.mailbox.findUnique({
-      where: { id: req.mailbox.id },
+      where: { id: req.mailbox.id }, // use req.user.id for mailbox too
       select: { id: true, emailAddress: true, domainId: true, lastLoginAt: true },
     });
-    return res.status(200).json(new ApiResponse(200, "OK", { mailbox }));
+    userData = {
+      id: mailbox.id,
+      name: mailbox.emailAddress,
+      email: mailbox.emailAddress,
+      role: "USER",
+      domainId: mailbox.domainId,
+      lastLoginAt: mailbox.lastLoginAt,
+      model: "MAILBOX",
+    };
   }
+
+  return res.status(200).json(new ApiResponse(200, "OK", { user: userData }));
 });
 
 // change pass
