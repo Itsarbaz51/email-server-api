@@ -197,6 +197,8 @@ const logout = asyncHandler(async (req, res) => {
 
 // get current user
 const getCurrentUser = asyncHandler(async (req, res) => {
+  console.log(req.user);
+  
   if (!req.user) return ApiError.send(res, 401, "Not authenticated");
 
   if (req.user.model === "ADMIN" || req.user.model === "SUPER_ADMIN") {
