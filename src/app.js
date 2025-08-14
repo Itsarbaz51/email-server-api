@@ -5,18 +5,13 @@ import cookieParser from "cookie-parser";
 const app = express();
 const data = "10mb";
 
-app.options(
-  "*",
+app.use(
   cors({
-    origin: [
-      "https://business-email-saas.vercel.app",
-      "https://primewebdev.in",
-    ],
-    credentials: true, // allow cookies
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    origin: process.env.CLIENT_URI,
+    credentials: true,
   })
 );
+
 app.use(express.json({ limit: data }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
