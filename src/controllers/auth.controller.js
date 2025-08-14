@@ -17,7 +17,6 @@ const cookieOptions = {
   sameSite: "None", // Cross-site requests allow kare
   path: "/",
 };
-};
 
 
 
