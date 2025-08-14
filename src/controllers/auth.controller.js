@@ -12,8 +12,8 @@ import {
 
 const cookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production", // true only in production
-  sameSite: "lax", // recommended for CSRF protection and usability
+  secure: true, // क्योंकि backend HTTPS है
+  sameSite: "none", // cross-origin cookies allow करने के लिए
   path: "/",
 };
 

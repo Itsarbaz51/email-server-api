@@ -7,8 +7,8 @@ const data = "10mb";
 
 app.use(
   cors({
-    origin: process.env.CLIENT_URI,
-    credentials: true,
+    origin: "https://tw2tvtht-5173.inc1.devtunnels.ms", // frontend URL
+    credentials: true, // allow cookies
   })
 );
 
