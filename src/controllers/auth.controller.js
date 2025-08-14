@@ -118,7 +118,7 @@ const login = asyncHandler(async (req, res) => {
   const refreshToken = generateRefreshToken(user.id, user.email, user.role);
 
   const { password: _, ...userSafe } = user;
-  console.log(userSafe);
+  console.log('userSafe',userSafe);
   console.log(accessToken);
   console.log(refreshToken);
 
