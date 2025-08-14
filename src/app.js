@@ -7,8 +7,13 @@ const data = "10mb";
 
 app.use(
   cors({
-    origin: "https://tw2tvtht-5173.inc1.devtunnels.ms", // frontend URL
+    origin: [
+      "https://tw2tvtht-5173.inc1.devtunnels.ms", // your dev tunnel
+      "https://primewebdev.in", // production frontend
+    ],
     credentials: true, // allow cookies
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
