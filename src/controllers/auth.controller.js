@@ -92,7 +92,7 @@ const signup = asyncHandler(async (req, res) => {
 // login
 const login = asyncHandler(async (req, res) => {
   let { emailOrPhone, password } = req.body;
-  if (!emailOrPhone || !password) return ApiError.send(res, 400, "Email and password are required");
+  if (!emailOrPhone || !password) return ApiError.send(res, 400, "Email/Phone and password are required");
   // Try User table
   const user = await Prisma.user.findFirst({
     where: { OR: [{ email: emailOrPhone.toLowerCase() }, { phone: emailOrPhone }]
@@ -197,7 +197,7 @@ const logout = asyncHandler(async (req, res) => {
 
 // get current user
 const getCurrentUser = asyncHandler(async (req, res) => {
-  if (!req.user.id) return ApiError.send(res, 401, "Not authenticated");
+  if (!req.user) return ApiError.send(res, 401, "Not authenticated");
 
   if (req.user.model === "ADMIN" || req.user.model === "SUPER_ADMIN") {
     const user = await Prisma.user.findUnique({
