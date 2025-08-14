@@ -15,8 +15,8 @@ import {
 
   const cookieOptions = {
     httpOnly: true,
-    secure: isProd,                          
-    sameSite: isProd ? "None" : "Lax",       
+    secure: false,                          
+    sameSite: "None",       
     path: "/"
   };
 
@@ -207,7 +207,7 @@ const getCurrentUser = asyncHandler(async (req, res) => {
     return res.status(200).json(new ApiResponse(200, "OK", { user }));
   } else {
     const mailbox = await Prisma.mailbox.findUnique({
-      where: { id: req.user.id },
+      where: { id: req.mailbox.id },
       select: { id: true, emailAddress: true, domainId: true, lastLoginAt: true },
     });
     return res.status(200).json(new ApiResponse(200, "OK", { mailbox }));
