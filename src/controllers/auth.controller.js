@@ -205,6 +205,9 @@ const getCurrentUser = asyncHandler(async (req, res) => {
       where: { id: req.user.id },
       select: { id: true, name: true, email: true, role: true, createdAt: true },
     });
+
+    if (!user) return ApiError.send(res, 404, "User not found");
+
     userData = user
   }
   //  else {
@@ -223,7 +226,7 @@ const getCurrentUser = asyncHandler(async (req, res) => {
   //   };
   // }
 
-  return res.status(200).json(new ApiResponse(200, "OK", userData));
+  return res.status(200).json(new ApiResponse(200, "OK", { user: userData }));
 });
 
 // change pass
