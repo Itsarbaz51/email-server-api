@@ -11,11 +11,13 @@ import {
 } from "../utils/lib.js";
 
 
-const isProd = process.env.NODE_ENV === "production";
 
 const cookieOptions = {
   httpOnly: true,
-  secure: false,
+  secure: false, // true if HTTPS
+  sameSite: "None", // important for cross-site requests
+  path: "/",
+  maxAge: 24 * 60 * 60 * 1000
 };
 
 
