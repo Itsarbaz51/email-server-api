@@ -134,9 +134,21 @@ const login = asyncHandler(async (req, res) => {
   console.log(refreshToken);
 
   return res
+    .cookie("accessToken", accessToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    })
+    .cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      path: "/",
+      maxAge: 90 * 24 * 60 * 60 * 1000, // 90 days
+    })
     .status(200)
-    .cookie("accessToken", accessToken, cookieOptionsAccess)
-    .cookie("refreshToken", refreshToken, cookieOptionsRefresh)
     .json(
       new ApiResponse(200, "Login successful", {
         user: userSafe,
