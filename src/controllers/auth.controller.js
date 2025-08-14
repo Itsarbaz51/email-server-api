@@ -206,21 +206,22 @@ const getCurrentUser = asyncHandler(async (req, res) => {
       select: { id: true, name: true, email: true, role: true, createdAt: true },
     });
     userData = { ...user, model: req.user.model };
-  } else {
-    const mailbox = await Prisma.mailbox.findUnique({
-      where: { id: req.mailbox.id }, // use req.user.id for mailbox too
-      select: { id: true, emailAddress: true, domainId: true, lastLoginAt: true },
-    });
-    userData = {
-      id: mailbox.id,
-      name: mailbox.emailAddress,
-      email: mailbox.emailAddress,
-      role: "USER",
-      domainId: mailbox.domainId,
-      lastLoginAt: mailbox.lastLoginAt,
-      model: "MAILBOX",
-    };
   }
+  //  else {
+  //   const mailbox = await Prisma.mailbox.findUnique({
+  //     where: { id: req.mailbox.id }, // use req.user.id for mailbox too
+  //     select: { id: true, emailAddress: true, domainId: true, lastLoginAt: true },
+  //   });
+  //   userData = {
+  //     id: mailbox.id,
+  //     name: mailbox.emailAddress,
+  //     email: mailbox.emailAddress,
+  //     role: "USER",
+  //     domainId: mailbox.domainId,
+  //     lastLoginAt: mailbox.lastLoginAt,
+  //     model: "MAILBOX",
+  //   };
+  // }
 
   return res.status(200).json(new ApiResponse(200, "OK", { user: userData }));
 });
