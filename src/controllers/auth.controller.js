@@ -12,7 +12,9 @@ import {
 
 const cookieOptions = {
   httpOnly: true,
-  secure: true,
+  secure: process.env.NODE_ENV === "production", // true only in production
+  sameSite: "lax", // recommended for CSRF protection and usability
+  path: "/",
 };
 
 // signup on role base protected middleware by super-admin and admin role base
@@ -118,7 +120,7 @@ const login = asyncHandler(async (req, res) => {
   const refreshToken = generateRefreshToken(user.id, user.email, user.role);
 
   const { password: _, ...userSafe } = user;
-  console.log('userSafe',userSafe);
+  console.log("userSafe", userSafe);
   console.log(accessToken);
   console.log(refreshToken);
 
