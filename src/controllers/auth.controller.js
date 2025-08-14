@@ -197,7 +197,7 @@ const logout = asyncHandler(async (req, res) => {
 
 // get current user
 const getCurrentUser = asyncHandler(async (req, res) => {
-  console.log(req.user);
+  console.log(req.user.id);
   
   if (!req.user) return ApiError.send(res, 401, "Not authenticated");
 
