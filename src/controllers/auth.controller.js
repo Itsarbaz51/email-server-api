@@ -10,16 +10,15 @@ import {
   hashPassword,
 } from "../utils/lib.js";
 
-const isProduction = process.env.NODE_ENV === "production";
-
 // set jwt token on cookies
 const setAuthCookies = (res, accessToken, refreshToken) => {
   const cookieOptions = {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: "Lax",
-    path: "/",
-  };
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "Lax" : "None",
+  path: "/"
+};
+
 
   // Access Token - 7 days
   res.cookie("accessToken", accessToken, {
@@ -181,7 +180,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
     res.cookie("accessToken", newAccessToken, {
       httpOnly: true,
-      secure: isProduction,
+      secure: process.env.NODE_ENV === "production",
       sameSite: "Lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
