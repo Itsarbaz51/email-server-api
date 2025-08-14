@@ -100,7 +100,6 @@ const login = asyncHandler(async (req, res) => {
     select: { id: true, email: true, password: true, role: true, name: true },
   });
 
-  if (user) {
     const isMatch = await comparePassword(password, user.password);
     if (!isMatch) return ApiError.send(res, 401, "Invalid credentials");
 
@@ -116,32 +115,6 @@ const login = asyncHandler(async (req, res) => {
         user: userSafe,
         accessTokenExpiresIn: process.env.ACCESS_TOKEN_EXPIRY || "7d",
       }));
-  }
-
-  // Else try mailbox login (if using mailbox model)
-  // NOTE: adapt the mailbox fields to your DB (schema uses Mailbox.emailAddress)
-  const mailbox = await Prisma.mailbox.findFirst({
-    where: { emailAddress: email.toLowerCase() },
-    select: { id: true, emailAddress: true, password: true, domainId: true },
-  });
-
-  if (mailbox) {
-    const isMatch = await comparePassword(password, mailbox.password);
-    if (!isMatch) return ApiError.send(res, 401, "Invalid credentials");
-
-    const accessToken = generateAccessToken(mailbox.id, mailbox.emailAddress, "USER");
-    const refreshToken = generateRefreshToken(mailbox.id, mailbox.emailAddress, "USER");
-
-    return res.status(200)
-      .cookie("accessToken", accessToken, cookieOptions)
-      .cookie("refreshToken", refreshToken, cookieOptions)
-      .json(new ApiResponse(200, "Mailbox login successful", {
-        mailbox: { id: mailbox.id, address: mailbox.emailAddress, domainId: mailbox.domainId },
-        accessTokenExpiresIn: process.env.ACCESS_TOKEN_EXPIRY || "7d",
-      }));
-  }
-
-  return ApiError.send(res, 404, "User or mailbox not found");
 });
 
 // refreshAccessToken generate
