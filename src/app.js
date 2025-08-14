@@ -8,7 +8,10 @@ const data = "10mb";
 app.options(
   "*",
   cors({
-    origin: ["https://localhost:5173", "https://primewebdev.in"],
+    origin: [
+      "https://business-email-saas.vercel.app",
+      "https://primewebdev.in",
+    ],
     credentials: true, // allow cookies
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
