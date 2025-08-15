@@ -11,7 +11,10 @@ import {
 } from "../utils/lib.js";
 
 const cookieOptions = {
-  secure: true, 
+  httpOnly: true,
+  sameSite: "none",
+  domain: ".primewebdev.in",
+  secure: true,
 };
 
 // signup on role base protected middleware by super-admin and admin role base
@@ -115,7 +118,6 @@ const login = asyncHandler(async (req, res) => {
   console.log("USER FOUND:", user);
 
   console.log(await comparePassword(password, user.password));
-  
 
   if (!user || !(await comparePassword(password, user.password))) {
     return ApiError.send(res, 401, "Invalid credentials");
