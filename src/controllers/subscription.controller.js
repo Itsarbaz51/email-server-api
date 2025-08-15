@@ -1,11 +1,25 @@
+import fetch from "node-fetch"; // make sure to install: npm install node-fetch
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import Prisma from "../db/db.js";
+import Razorpay from "razorpay";
 
 const MAX_INT = Number.MAX_SAFE_INTEGER;
-console.log("MAX_INT:", MAX_INT); // Debugging line to check MAX_INT value
 
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_SECRET,
+});
+
+// Example USD prices
+
+const planPricesUSD = {
+  BASIC: 5, // $5 per month
+  PREMIUM: 15,
+};
+
+// Plan limits
 const planLimits = {
   FREE: {
     maxDomains: 1,
@@ -24,36 +38,62 @@ const planLimits = {
   PREMIUM: {
     maxDomains: 10,
     maxMailboxes: 50,
-    maxSentEmails: MAX_INT,      // use max int instead of Infinity
+    maxSentEmails: MAX_INT,
     maxReceivedEmails: MAX_INT,
     allowedStorageMB: 51200,
   },
 };
 
+// Adjust limits for yearly billing
 const adjustLimitsForBillingCycle = (limits, billingCycle) => {
   if (billingCycle.toUpperCase() === "YEARLY") {
     return {
       maxDomains: Math.floor(limits.maxDomains * 1.5),
       maxMailboxes: Math.floor(limits.maxMailboxes * 1.5),
-      maxSentEmails: limits.maxSentEmails === MAX_INT ? MAX_INT : Math.floor(limits.maxSentEmails * 1.5),
-      maxReceivedEmails: limits.maxReceivedEmails === MAX_INT ? MAX_INT : Math.floor(limits.maxReceivedEmails * 1.5),
+      maxSentEmails:
+        limits.maxSentEmails === MAX_INT
+          ? MAX_INT
+          : Math.floor(limits.maxSentEmails * 1.5),
+      maxReceivedEmails:
+        limits.maxReceivedEmails === MAX_INT
+          ? MAX_INT
+          : Math.floor(limits.maxReceivedEmails * 1.5),
       allowedStorageMB: Math.floor(limits.allowedStorageMB * 1.5),
     };
   }
   return limits;
 };
 
+// Fetch USD→INR rate
+async function getUsdToInrRate() {
+  try {
+    const res = await fetch(
+      "https://api.frankfurter.app/latest?from=USD&to=INR"
+    );
+    const data = await res.json();
+    return data.rates?.INR || 83; // fallback
+  } catch (error) {
+    console.error("Error fetching exchange rate:", error);
+    return 83; // fallback
+  }
+}
+
 export const createOrRenewSubscription = asyncHandler(async (req, res) => {
-  let { plan, billingCycle, razorpayOrderId, razorpayPaymentId, razorpayStatus, paymentStatus, paymentId, paymentProvider } = req.body;
+  let {
+    plan,
+    billingCycle,
+    razorpayOrderId,
+    razorpayPaymentId,
+    razorpayStatus,
+    paymentStatus,
+    paymentId,
+    paymentProvider,
+  } = req.body;
+
   const userId = req.user.id;
 
-  if (!razorpayOrderId || !razorpayPaymentId || !razorpayStatus || !paymentStatus || !paymentProvider || !paymentId) {
-    return ApiError.send(res, 400, "All payment details are required");
-  }
-
-  if (!plan || !billingCycle) {
+  if (!plan || !billingCycle)
     return ApiError.send(res, 400, "Plan and billing cycle are required");
-  }
 
   plan = plan.toUpperCase();
   billingCycle = billingCycle.toUpperCase();
@@ -61,18 +101,60 @@ export const createOrRenewSubscription = asyncHandler(async (req, res) => {
   const validPlans = Object.keys(planLimits);
   const validCycles = ["MONTHLY", "YEARLY"];
 
-  if (!validPlans.includes(plan)) {
+  if (!validPlans.includes(plan))
     return ApiError.send(res, 400, "Invalid plan");
-  }
-  if (!validCycles.includes(billingCycle)) {
+  if (!validCycles.includes(billingCycle))
     return ApiError.send(res, 400, "Invalid billing cycle");
+
+  // Payment verification for paid plans
+  if (plan !== "FREE") {
+    if (!razorpayOrderId || !razorpayPaymentId) {
+      return ApiError.send(
+        res,
+        400,
+        "Payment details are required for paid plans"
+      );
+    }
+
+    // Fetch live exchange rate
+    const usdToInr = await getUsdToInrRate();
+    let planPriceUSD = planPricesUSD[plan];
+    if (billingCycle === "YEARLY") planPriceUSD *= 12; // yearly price
+
+    const expectedAmountInPaise = Math.round(planPriceUSD * usdToInr * 100);
+
+    // Verify Razorpay payment
+    const payment = await razorpay.payments.fetch(razorpayPaymentId);
+    if (!payment) return ApiError.send(res, 400, "Payment not found");
+
+    if (payment.status !== "captured")
+      return ApiError.send(res, 400, "Payment not captured");
+    if (payment.order_id !== razorpayOrderId)
+      return ApiError.send(res, 400, "Order ID mismatch");
+    if (payment.amount !== expectedAmountInPaise) {
+      return ApiError.send(
+        res,
+        400,
+        `Payment amount mismatch. Expected ${expectedAmountInPaise}, got ${payment.amount}`
+      );
+    }
+
+    paymentStatus = "SUCCESS";
+    paymentProvider = "RAZORPAY";
+    paymentId = payment.id;
+    razorpayStatus = payment.status;
   }
 
   let startDate = new Date();
   let endDate = new Date();
-
   if (plan === "FREE") {
-    endDate.setDate(startDate.getDate() + 8); // 8 days free trial
+    endDate.setDate(startDate.getDate() + 8);
+    paymentStatus = "FREE";
+    paymentProvider = "NONE";
+    paymentId = null;
+    razorpayOrderId = null;
+    razorpayPaymentId = null;
+    razorpayStatus = null;
   } else if (billingCycle === "MONTHLY") {
     endDate.setMonth(startDate.getMonth() + 1);
   } else if (billingCycle === "YEARLY") {
@@ -82,29 +164,22 @@ export const createOrRenewSubscription = asyncHandler(async (req, res) => {
   const baseLimits = planLimits[plan];
   const adjustedLimits = adjustLimitsForBillingCycle(baseLimits, billingCycle);
 
-  // Try to get existing subscription for user
   const existingSub = await Prisma.subscription.findFirst({
     where: { userId, isActive: true },
   });
-
-  // Keep storageUsedMB if exists, else 0
   const storageUsedMB = existingSub?.storageUsedMB || 0;
 
   const subscriptionData = {
     plan,
     billingCycle,
-    maxDomains: adjustedLimits.maxDomains,
-    maxMailboxes: adjustedLimits.maxMailboxes,
-    maxSentEmails: adjustedLimits.maxSentEmails,
-    maxReceivedEmails: adjustedLimits.maxReceivedEmails,
-    allowedStorageMB: adjustedLimits.allowedStorageMB,
+    ...adjustedLimits,
     storageUsedMB,
-    paymentProvider: paymentProvider || 'RAZORPAY',
-    paymentStatus: paymentStatus || "PENDING",
-    paymentId: paymentId || null,
-    razorpayOrderId: razorpayOrderId || null,
-    razorpayPaymentId: razorpayPaymentId || null,
-    razorpayStatus: razorpayStatus || null,
+    paymentProvider,
+    paymentStatus,
+    paymentId,
+    razorpayOrderId,
+    razorpayPaymentId,
+    razorpayStatus,
     startDate,
     endDate,
     isActive: true,
@@ -112,20 +187,19 @@ export const createOrRenewSubscription = asyncHandler(async (req, res) => {
   };
 
   if (existingSub) {
-    // Renew subscription
     const updatedSub = await Prisma.subscription.update({
       where: { id: existingSub.id },
       data: subscriptionData,
     });
-    return res.json(new ApiResponse(200, "Subscription renewed successfully", updatedSub));
+    return res.json(
+      new ApiResponse(200, "Subscription renewed successfully", updatedSub)
+    );
   }
 
-  // Create new subscription
-  const newSub = await Prisma.subscription.create({
-    data: subscriptionData,
-  });
-
-  res.status(201).json(new ApiResponse(201, "Subscription created successfully", newSub));
+  const newSub = await Prisma.subscription.create({ data: subscriptionData });
+  res
+    .status(201)
+    .json(new ApiResponse(201, "Subscription created successfully", newSub));
 });
 
 export const getMySubscription = asyncHandler(async (req, res) => {
@@ -140,7 +214,9 @@ export const getMySubscription = asyncHandler(async (req, res) => {
     return ApiError.send(res, 404, "No active subscription found");
   }
 
-  return res.status(200).json(new ApiResponse(200, "Subscription retrieved", subscription));
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Subscription retrieved", subscription));
 });
 
 export const cancelSubscription = asyncHandler(async (req, res) => {
@@ -160,5 +236,7 @@ export const cancelSubscription = asyncHandler(async (req, res) => {
     data: { isActive: false, endDate: new Date() },
   });
 
-  return res.status(200).json(new ApiResponse(200, "Subscription cancelled successfully"));
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Subscription cancelled successfully"));
 });

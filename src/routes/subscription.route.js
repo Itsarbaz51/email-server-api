@@ -5,7 +5,7 @@ import {cancelSubscription, createOrRenewSubscription, getMySubscription} from "
 const router = express.Router();
 router.use(requireAuth)
 
-router.post("/create-subcription", createOrRenewSubscription);
+router.post("/create-renew-subcription", createOrRenewSubscription);
 router.get("/get-my-subcription", getMySubscription);
 router.delete("/cancel-subcription", cancelSubscription);
 
