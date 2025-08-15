@@ -13,13 +13,13 @@ export const comparePassword = async (password, hashedPassword) => {
 };
 
 export const generateAccessToken = (id, email, role) => {
-  const secret = process.env.ACCESS_TOKEN_SECRET;
-  const expiresIn = process.env.ACCESS_TOKEN_EXPIRY ;
-  return jwt.sign({ id, email, role }, secret, { expiresIn:expiresIn });
+  return jwt.sign({ id, email, role }, process.env.ACCESS_TOKEN_SECRET, {
+    expiresIn: process.env.ACCESS_TOKEN_EXPIRY || "1d",
+  });
 };
 
 export const generateRefreshToken = (id, email, role) => {
-  const secret = process.env.REFRESH_TOKEN_SECRET;
-  const expiresIn = process.env.REFRESH_TOKEN_EXPIRY;
-  return jwt.sign({ id, email, role }, secret, { expiresIn:expiresIn });
+  return jwt.sign({ id, email, role }, process.env.REFRESH_TOKEN_SECRET, {
+    expiresIn: process.env.REFRESH_TOKEN_EXPIRY,
+  });
 };

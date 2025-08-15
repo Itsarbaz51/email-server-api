@@ -10,13 +10,13 @@ import {
   hashPassword,
 } from "../utils/lib.js";
 
-const isProd = process.env.NODE_ENV === "production";
-
 const cookieOptions = {
   httpOnly: true,
-  secure: isProd,
+  secure: process.env.NODE_ENV == "production",
+  sameSite: "Lax",
+  path: "/",
+  // maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
 };
-
 // signup on role base protected middleware by super-admin and admin role base
 const signupAdmin = asyncHandler(async (req, res) => {
   const { name, email, password, role } = req.body;
@@ -100,11 +100,12 @@ const signup = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, "Registered successfully", { user }));
 });
 
-// login
 const login = asyncHandler(async (req, res) => {
   const { emailOrPhone, password } = req.body;
-  if (!emailOrPhone || !password)
+
+  if (!emailOrPhone || !password) {
     return ApiError.send(res, 400, "Email/Phone and password are required");
+  }
 
   const user = await Prisma.user.findFirst({
     where: {
@@ -117,27 +118,23 @@ const login = asyncHandler(async (req, res) => {
     return ApiError.send(res, 401, "Invalid credentials");
   }
 
+  const isMatch = await comparePassword(password, user.password);
+  if (!isMatch) {
+    return ApiError.send(res, 401, "Invalid credentials");
+  }
+
   const accessToken = generateAccessToken(user.id, user.email, user.role);
   const refreshToken = generateRefreshToken(user.id, user.email, user.role);
+
   const { password: _, ...userSafe } = user;
 
   return res
-    .cookie("accessToken", accessToken, {
-      ...cookieOptions,
-    })
-    .cookie("refreshToken", refreshToken, {
-      ...cookieOptions,
-    })
     .status(200)
-    .json(
-      new ApiResponse(200, "Login successful", {
-        user: userSafe,
-        accessTokenExpiresIn: process.env.ACCESS_TOKEN_EXPIRY || "7d",
-      })
-    );
+    .cookie("accessToken", accessToken, cookieOptions)
+    .cookie("refreshToken", refreshToken, cookieOptions)
+    .json(ApiResponse.success({ user: userSafe }, "Login successful"));
 });
 
-// refreshAccessToken generate
 const refreshAccessToken = asyncHandler(async (req, res) => {
   const token = req.cookies?.refreshToken || req.body?.refreshToken;
   if (!token) return ApiError.send(res, 401, "Refresh token missing");
