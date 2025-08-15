@@ -104,10 +104,10 @@ const signup = asyncHandler(async (req, res) => {
 
 // login
 const login = asyncHandler(async (req, res) => {
-  let { emailOrPhone, password } = req.body;
+  const { emailOrPhone, password } = req.body;
   if (!emailOrPhone || !password)
     return ApiError.send(res, 400, "Email/Phone and password are required");
-  // Try User table
+
   const user = await Prisma.user.findFirst({
     where: {
       OR: [{ email: emailOrPhone.toLowerCase() }, { phone: emailOrPhone }],
@@ -115,16 +115,13 @@ const login = asyncHandler(async (req, res) => {
     select: { id: true, email: true, password: true, role: true, name: true },
   });
 
-  const isMatch = await comparePassword(password, user.password);
-  if (!isMatch) return ApiError.send(res, 401, "Invalid credentials");
+  if (!user || !(await comparePassword(password, user.password))) {
+    return ApiError.send(res, 401, "Invalid credentials");
+  }
 
   const accessToken = generateAccessToken(user.id, user.email, user.role);
   const refreshToken = generateRefreshToken(user.id, user.email, user.role);
-
   const { password: _, ...userSafe } = user;
-  console.log("userSafe", userSafe);
-  console.log(accessToken);
-  console.log(refreshToken);
 
   return res
     .cookie("accessToken", accessToken, {
@@ -153,26 +150,28 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     const decoded = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET);
 
     let newAccessToken;
+
     if (
       decoded.role === "ADMIN" ||
       decoded.role === "SUPER_ADMIN" ||
       decoded.role === "USER"
     ) {
-      // If role corresponds to User model
       const user = await Prisma.user.findUnique({
         where: { id: decoded.id },
         select: { id: true, email: true, role: true },
       });
 
       if (!user) return ApiError.send(res, 401, "User not found");
+
       newAccessToken = generateAccessToken(user.id, user.email, user.role);
     } else {
-      // fallback: check mailbox by id (if refresh token was issued for mailbox)
       const mailbox = await Prisma.mailbox.findUnique({
         where: { id: decoded.id },
         select: { id: true, emailAddress: true },
       });
+
       if (!mailbox) return ApiError.send(res, 401, "Mailbox not found");
+
       newAccessToken = generateAccessToken(
         mailbox.id,
         mailbox.emailAddress,
@@ -181,9 +180,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     }
 
     res.cookie("accessToken", newAccessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "Lax",
+      ...cookieOptions,
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -200,8 +197,10 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
 // logout
 const logout = asyncHandler(async (req, res) => {
-  res.clearCookie("accessToken", { path: "/" });
-  res.clearCookie("refreshToken", { path: "/" });
+  res
+    .clearCookie("accessToken", cookieOptions)
+    .clearCookie("refreshToken", cookieOptions);
+
   return res.status(200).json(new ApiResponse(200, "Logged out successfully"));
 });
 
