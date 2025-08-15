@@ -199,10 +199,7 @@ export const createOrRenewSubscription = asyncHandler(async (req, res) => {
   }
 
   const newSub = await Prisma.subscription.create({
-    data: {
-      ...subscriptionData,
-      user: { connect: { id: userId } },
-    },
+    data: subscriptionData,
   });
   res
     .status(201)
