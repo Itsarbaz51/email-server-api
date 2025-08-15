@@ -9,6 +9,8 @@ import Prisma from "../db/db.js";
  */
 
 const requireAuth = asyncHandler(async (req, res, next) => {
+  console.log("req.cookies", req.cookies);
+
   const token =
     req.cookies?.accessToken ||
     (req.headers.authorization && req.headers.authorization.split(" ")[1]) ||
@@ -30,7 +32,12 @@ const requireAuth = asyncHandler(async (req, res, next) => {
     });
 
     if (user) {
-      req.user = { id: user.id, email: user.email, role: user.role, model: "USER" };
+      req.user = {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        model: "USER",
+      };
       return next();
     }
 
@@ -41,11 +48,16 @@ const requireAuth = asyncHandler(async (req, res, next) => {
     });
 
     console.log(mailbox);
-    
+
     if (mailbox) {
-      req.mailbox = { id: mailbox.id, email: mailbox.emailAddress, role: "USER", model: "MAILBOX" };
+      req.mailbox = {
+        id: mailbox.id,
+        email: mailbox.emailAddress,
+        role: "USER",
+        model: "MAILBOX",
+      };
       console.log(req.mailbox);
-      
+
       return next();
     }
 
@@ -62,9 +74,11 @@ const requireAuth = asyncHandler(async (req, res, next) => {
 const requireRole = (allowedRoles = []) => {
   return (req, res, next) => {
     if (!req.user) return ApiError.send(res, 401, "Not authenticated");
-    if (req.user.model !== "USER") return ApiError.send(res, 403, "Insufficient privileges");
+    if (req.user.model !== "USER")
+      return ApiError.send(res, 403, "Insufficient privileges");
 
-    if (!allowedRoles.includes(req.user.role)) return ApiError.send(res, 403, "Forbidden");
+    if (!allowedRoles.includes(req.user.role))
+      return ApiError.send(res, 403, "Forbidden");
     return next();
   };
 };
