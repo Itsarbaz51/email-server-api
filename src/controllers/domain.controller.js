@@ -78,11 +78,11 @@ export const addDomain = asyncHandler(async (req, res) => {
 });
 // Verify Domain
 export const verifyDomain = asyncHandler(async (req, res) => {
-  const { domainId } = req.params;
-  console.log(`Verifying domain with ID: ${domainId}`);
+  const { name } = req.params;
+  console.log(`Verifying domain with ID: ${name}`);
 
   const domain = await Prisma.domain.findFirst({
-    where: { id: domainId },
+    where: { name },
     include: { dnsRecords: true },
   });
 
