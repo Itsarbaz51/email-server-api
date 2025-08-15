@@ -1,4 +1,3 @@
-import fetch from "node-fetch"; // make sure to install: npm install node-fetch
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
