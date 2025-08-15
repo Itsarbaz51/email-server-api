@@ -7,7 +7,7 @@ const data = "10mb";
 
 app.use(
   cors({
-    origin: process.env.CLIENT_URI,
+    origin: 'https://business-email-saas.vercel.app',
     credentials: true,
   })
 );

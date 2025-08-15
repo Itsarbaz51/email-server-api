@@ -12,8 +12,8 @@ import {
 
 const cookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "Lax",
+  secure: true, // required for SameSite: None
+  sameSite: "None",
   path: "/",
 };
 
