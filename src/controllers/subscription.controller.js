@@ -70,11 +70,10 @@ async function getUsdToInrRate() {
     const res = await axios.get(
       "https://api.frankfurter.app/latest?from=USD&to=INR"
     );
-    const data = await res.json();
-    return data.rates?.INR || 83; // fallback
+    return res.data.rates?.INR || 83; // ✅ no .json()
   } catch (error) {
     console.error("Error fetching exchange rate:", error);
-    return 83; // fallback
+    return 83;
   }
 }
 
@@ -169,7 +168,7 @@ export const createOrRenewSubscription = asyncHandler(async (req, res) => {
     where: { userId, isActive: true },
   });
   console.log(existingSub);
-  
+
   const storageUsedMB = existingSub?.storageUsedMB || 0;
 
   const subscriptionData = {
@@ -199,7 +198,12 @@ export const createOrRenewSubscription = asyncHandler(async (req, res) => {
     );
   }
 
-  const newSub = await Prisma.subscription.create({ data: subscriptionData });
+  const newSub = await Prisma.subscription.create({
+    data: {
+      ...subscriptionData,
+      user: { connect: { id: userId } },
+    },
+  });
   res
     .status(201)
     .json(new ApiResponse(201, "Subscription created successfully", newSub));
