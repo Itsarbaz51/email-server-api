@@ -12,8 +12,11 @@ import {
 
 const cookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV == "production",
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "Lax",
+  path: "/",
 };
+
 // signup on role base protected middleware by super-admin and admin role base
 const signupAdmin = asyncHandler(async (req, res) => {
   const { name, email, password, role } = req.body;
@@ -99,8 +102,7 @@ const signup = asyncHandler(async (req, res) => {
 
 const login = asyncHandler(async (req, res) => {
   const { emailOrPhone, password } = req.body;
-  console.log(req.body);
-  console.log(emailOrPhone, password);
+  console.log("LOGIN BODY:", req.body);
 
   if (!emailOrPhone || !password) {
     return ApiError.send(res, 400, "Email/Phone and password are required");
@@ -113,24 +115,19 @@ const login = asyncHandler(async (req, res) => {
     select: { id: true, email: true, password: true, role: true, name: true },
   });
 
-  console.log(user);
+  console.log("USER FOUND:", user);
 
   if (!user || !(await comparePassword(password, user.password))) {
     return ApiError.send(res, 401, "Invalid credentials");
   }
 
-  const isMatch = await comparePassword(password, user.password);
-  if (!isMatch) {
-    return ApiError.send(res, 401, "Invalid credentials");
-  }
-  console.log(isMatch);
-
   const accessToken = generateAccessToken(user.id, user.email, user.role);
   const refreshToken = generateRefreshToken(user.id, user.email, user.role);
-  console.log(accessToken);
-  console.log(refreshToken);
 
   const { password: _, ...userSafe } = user;
+
+  console.log("TOKENS:", { accessToken, refreshToken });
+  console.log("RESPONDING WITH USER:", userSafe);
 
   return res
     .status(200)
