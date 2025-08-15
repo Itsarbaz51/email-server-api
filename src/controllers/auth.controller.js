@@ -116,7 +116,7 @@ const login = asyncHandler(async (req, res) => {
 
   console.log("USER FOUND:", user);
 
-  console.log(await comparePassword(password, user.password)));
+  console.log(await comparePassword(password, user.password));
   
 
   if (!user || !(await comparePassword(password, user.password))) {
