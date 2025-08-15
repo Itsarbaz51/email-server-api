@@ -33,6 +33,7 @@ enum MailboxStatus {
 }
 
 enum paymentProviders {
+  FREE
   RAZORPAY
   STRIPE
   PAYPAL
