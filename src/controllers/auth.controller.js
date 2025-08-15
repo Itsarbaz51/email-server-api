@@ -11,8 +11,7 @@ import {
 } from "../utils/lib.js";
 
 const cookieOptions = {
-  httpOnly: true,
-  secure: true, // required for SameSite: None
+  secure: true, 
   sameSite: "None",
   path: "/",
 };

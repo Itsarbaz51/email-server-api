@@ -7,7 +7,17 @@ const data = "10mb";
 
 app.use(
   cors({
-    origin: 'https://email.primewebdev.in/',
+    origin: (origin, callback) => {
+      const allowed = [
+        "https://email.primewebdev.in",
+        "https://localhost:5173",
+      ];
+      if (!origin || allowed.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
