@@ -13,7 +13,8 @@ import {
 const cookieOptions = {
   httpOnly: true,
   sameSite: "none",
-  domain: ".primewebdev.in",
+  // domain: ".primewebdev.in",
+  domain: "localhost",
   secure: true,
 };
 
