@@ -143,29 +143,26 @@ export const verifyDomain = asyncHandler(async (req, res) => {
     })
   );
 });
-export const getDomainRecords = asyncHandler(async (req, res) => {
-  const { domainId } = req.params; // Correct param destructuring
+
+export const getDomains = asyncHandler(async (req, res) => {
   const userId = req.user?.id;
 
-  if (!domainId || !userId) {
-    return ApiError.send(res, 401, "Unauthorized User/Domain");
+  if (!userId) {
+    return ApiError.send(res, 401, "Unauthorized User");
   }
 
-  const domainRecords = await Prisma.dNSRecord.findMany({
+  const domains = await Prisma.domain.findMany({
     where: {
-      domainId: domainId,
-      domain: {
-        userId: userId,
-      },
+      userId,
     },
   });
 
-  if (!domainRecords || domainRecords.length === 0) {
+  if (!domains || domains.length === 0) {
     return ApiError.send(res, 404, "Domain records not found");
   }
 
   return res.status(200).json(
-    new ApiResponse(200, "Domain DNS records fetched", domainRecords)
+    new ApiResponse(200, "Domains fetched", domains)
   );
 });
 
