@@ -7,7 +7,7 @@ const data = "10mb";
 
 app.use(
   cors({
-    origin: 'https://business-email-saas.vercel.app',
+    origin: 'https://email.primewebdev.in/',
     credentials: true,
   })
 );
