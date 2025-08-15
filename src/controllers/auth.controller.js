@@ -12,8 +12,6 @@ import {
 
 const cookieOptions = {
   secure: true, 
-  sameSite: "None",
-  path: "/",
 };
 
 // signup on role base protected middleware by super-admin and admin role base
