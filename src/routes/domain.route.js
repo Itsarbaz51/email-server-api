@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middlewares/auth.middleware.js";
-import { addDomain, verifyDomain } from "../controllers/domain.controller.js";
+import { addDomain, verifyDomain, getDomainRecords } from "../controllers/domain.controller.js";
 import { verifySubscription } from "../middlewares/subscription.middleware.js";
 
 const router = Router();
@@ -10,6 +10,7 @@ const router = Router();
 
 // create/add domain 
 router.post("/add-domain",requireAuth, verifySubscription("createDomain"), addDomain);
+router.post("/get-domain-records",requireAuth,  getDomainRecords);
 
 // verify domain with domain id
 router.get("/verify-domian/:domainId", verifyDomain);

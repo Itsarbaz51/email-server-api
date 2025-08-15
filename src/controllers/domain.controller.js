@@ -143,6 +143,32 @@ export const verifyDomain = asyncHandler(async (req, res) => {
     })
   );
 });
+export const getDomainRecords = asyncHandler(async (req, res) => {
+  const { domainId } = req.params; // Correct param destructuring
+  const userId = req.user?.id;
+
+  if (!domainId || !userId) {
+    return ApiError.send(res, 401, "Unauthorized User/Domain");
+  }
+
+  const domainRecords = await Prisma.dNSRecord.findMany({
+    where: {
+      domainId: domainId,
+      domain: {
+        userId: userId,
+      },
+    },
+  });
+
+  if (!domainRecords || domainRecords.length === 0) {
+    return ApiError.send(res, 404, "Domain records not found");
+  }
+
+  return res.status(200).json(
+    new ApiResponse(200, "Domain DNS records fetched", domainRecords)
+  );
+});
+
 
 // DNS record verification helper (fixed)
 async function verifyDnsRecord(record, domainName) {
