@@ -10,6 +10,8 @@ import {
   hashPassword,
 } from "../utils/lib.js";
 
+const isProd = process.env.NODE_ENV == "production";
+
 const cookieOptionsAccess = {
   httpOnly: true,
   secure: true,
@@ -136,15 +138,15 @@ const login = asyncHandler(async (req, res) => {
   return res
     .cookie("accessToken", accessToken, {
       httpOnly: true,
-      secure: true, // dev में false रख सकते हो
-      sameSite: "none",
+      secure: isProd, // ⬅️ only true in production
+      sameSite: isProd ? "none" : "lax", // ⬅️ 'lax' for local dev, 'none' for cross-site prod
       path: "/",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     })
     .cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: true, // dev में false रख सकते हो
-      sameSite: "none",
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
       path: "/",
       maxAge: 90 * 24 * 60 * 60 * 1000,
     })
