@@ -153,10 +153,13 @@ export const getDomains = asyncHandler(async (req, res) => {
 
   const domains = await Prisma.domain.findMany({
     where: {
-      userId,
-      dnsRecords: true
+      userId: userId,
+    },
+    include: {
+      dnsRecords: true,
     },
   });
+
 
   if (!domains || domains.length === 0) {
     return ApiError.send(res, 404, "Domain records not found");
