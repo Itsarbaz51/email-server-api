@@ -15,8 +15,6 @@ const isProd = process.env.NODE_ENV === "production";
 const cookieOptions = {
   httpOnly: true,
   secure: isProd,
-  sameSite: isProd ? "none" : "lax",
-  path: "/",
 };
 
 // signup on role base protected middleware by super-admin and admin role base
@@ -126,11 +124,9 @@ const login = asyncHandler(async (req, res) => {
   return res
     .cookie("accessToken", accessToken, {
       ...cookieOptions,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
     })
     .cookie("refreshToken", refreshToken, {
       ...cookieOptions,
-      maxAge: 90 * 24 * 60 * 60 * 1000,
     })
     .status(200)
     .json(
