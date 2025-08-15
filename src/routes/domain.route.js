@@ -13,6 +13,6 @@ router.post("/add-domain",requireAuth, verifySubscription("createDomain"), addDo
 router.get("/get-domains",requireAuth,  getDomains);
 
 // verify domain with domain id
-router.get("/verify-domian/:domainId", verifyDomain);
+router.get("/verify-domian/:domainName", verifyDomain);
 
 export default router;
