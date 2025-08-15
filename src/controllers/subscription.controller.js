@@ -4,6 +4,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import Prisma from "../db/db.js";
 import Razorpay from "razorpay";
+import axios from "axios";
 
 const MAX_INT = Number.MAX_SAFE_INTEGER;
 
@@ -67,7 +68,7 @@ const adjustLimitsForBillingCycle = (limits, billingCycle) => {
 // Fetch USD→INR rate
 async function getUsdToInrRate() {
   try {
-    const res = await fetch(
+    const res = await axios.get(
       "https://api.frankfurter.app/latest?from=USD&to=INR"
     );
     const data = await res.json();
