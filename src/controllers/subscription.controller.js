@@ -165,7 +165,7 @@ export const createOrRenewSubscription = asyncHandler(async (req, res) => {
   const adjustedLimits = adjustLimitsForBillingCycle(baseLimits, billingCycle);
 
   const existingSub = await Prisma.subscription.findFirst({
-    where: { userId, isActive: true },
+    where: { id:userId, isActive: true },
   });
   const storageUsedMB = existingSub?.storageUsedMB || 0;
 
