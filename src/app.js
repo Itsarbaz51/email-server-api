@@ -10,7 +10,7 @@ app.use(
     origin: (origin, callback) => {
       const allowed = [
         "https://email.primewebdev.in",
-        "https://localhost:5173",
+        "http://localhost:5173",
       ];
       if (!origin || allowed.includes(origin)) {
         callback(null, true);
