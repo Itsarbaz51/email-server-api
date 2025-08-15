@@ -10,7 +10,7 @@ const router = Router();
 
 // create/add domain 
 router.post("/add-domain",requireAuth, verifySubscription("createDomain"), addDomain);
-router.post("/get-domains",requireAuth,  getDomains);
+router.get("/get-domains",requireAuth,  getDomains);
 
 // verify domain with domain id
 router.get("/verify-domian/:domainId", verifyDomain);
