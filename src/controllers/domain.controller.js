@@ -154,6 +154,7 @@ export const getDomains = asyncHandler(async (req, res) => {
   const domains = await Prisma.domain.findMany({
     where: {
       userId,
+      dnsRecords: true
     },
   });
 
