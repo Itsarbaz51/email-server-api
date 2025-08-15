@@ -116,6 +116,9 @@ const login = asyncHandler(async (req, res) => {
 
   console.log("USER FOUND:", user);
 
+  console.log(await comparePassword(password, user.password)));
+  
+
   if (!user || !(await comparePassword(password, user.password))) {
     return ApiError.send(res, 401, "Invalid credentials");
   }
