@@ -13,9 +13,6 @@ import {
 const cookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV == "production",
-  sameSite: "Lax",
-  path: "/",
-  // maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
 };
 // signup on role base protected middleware by super-admin and admin role base
 const signupAdmin = asyncHandler(async (req, res) => {
@@ -102,6 +99,8 @@ const signup = asyncHandler(async (req, res) => {
 
 const login = asyncHandler(async (req, res) => {
   const { emailOrPhone, password } = req.body;
+  console.log(req.body);
+  console.log(emailOrPhone, password);
 
   if (!emailOrPhone || !password) {
     return ApiError.send(res, 400, "Email/Phone and password are required");
@@ -114,6 +113,8 @@ const login = asyncHandler(async (req, res) => {
     select: { id: true, email: true, password: true, role: true, name: true },
   });
 
+  console.log(user);
+
   if (!user || !(await comparePassword(password, user.password))) {
     return ApiError.send(res, 401, "Invalid credentials");
   }
@@ -122,9 +123,12 @@ const login = asyncHandler(async (req, res) => {
   if (!isMatch) {
     return ApiError.send(res, 401, "Invalid credentials");
   }
+  console.log(isMatch);
 
   const accessToken = generateAccessToken(user.id, user.email, user.role);
   const refreshToken = generateRefreshToken(user.id, user.email, user.role);
+  console.log(accessToken);
+  console.log(refreshToken);
 
   const { password: _, ...userSafe } = user;
 
