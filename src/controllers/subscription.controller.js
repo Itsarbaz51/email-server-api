@@ -149,7 +149,7 @@ export const createOrRenewSubscription = asyncHandler(async (req, res) => {
   if (plan === "FREE") {
     endDate.setDate(startDate.getDate() + 8);
     paymentStatus = "FREE";
-    paymentProvider = null;
+    paymentProvider = "FREE";
     paymentId = null;
     razorpayOrderId = null;
     razorpayPaymentId = null;
