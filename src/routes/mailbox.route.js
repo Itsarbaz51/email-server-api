@@ -22,6 +22,6 @@ router.put(
   updateMailbox
 );
 router.get("/get-mailbox", getMailboxes);
-router.delete("/delete-mailbox", deleteMailbox);
+router.delete("/delete-mailbox/:id", deleteMailbox);
 
 export default router;
