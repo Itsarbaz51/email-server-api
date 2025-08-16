@@ -174,6 +174,8 @@ export const getDomains = asyncHandler(async (req, res) => {
 
 // delete domain
 export const deleteDomain = asyncHandler(async (req, res) => {
+  console.log(req.params);
+  
   const { name } = req.params;
   const userId = req.user.id;
 
