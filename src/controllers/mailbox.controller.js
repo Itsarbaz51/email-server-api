@@ -114,10 +114,10 @@ const getMailboxes = asyncHandler(async (req, res) => {
 
   const mailboxes = await Prisma.mailbox.findMany({
     where: {
-      domain: { userId  : userId },
+      domain: { userId: userId },
     },
     include: {
-      domain: { select: { name: true, verified: true } },
+      domain: { select: { name: true, status: "VERIFIED" } },
     },
   });
 
