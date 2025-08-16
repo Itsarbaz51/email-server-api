@@ -79,7 +79,7 @@ export const addDomain = asyncHandler(async (req, res) => {
 // Verify Domain
 export const verifyDomain = asyncHandler(async (req, res) => {
   console.log(req.params);
-  
+
   const { name } = req.params;
   console.log(`Verifying domain with ID: ${name}`);
 
@@ -172,6 +172,73 @@ export const getDomains = asyncHandler(async (req, res) => {
   );
 });
 
+// delete domain
+export const deleteDomain = asyncHandler(async (req, res) => {
+  const { name } = req.params;
+  const userId = req.user.id;
+
+  if (!name) return ApiError.send(res, 401, "Domain name is required");
+  if (!userId) return ApiError.send(res, 401, "Unauthorized User");
+
+  const domain = await Prisma.domain.findFirst({
+    where: { name, userId },
+  });
+
+  if (!domain) return ApiError.send(res, 404, "Domain not found");
+
+  try {
+    // 1️⃣ Delete domain from SendGrid
+    if (domain.sendgridId) {
+      await axios.delete(
+        `https://api.sendgrid.com/v3/whitelabel/domains/${domain.sendgridId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.SENDGRID_API_KEY}`,
+          },
+        }
+      );
+    } else {
+      // fallback: find domain by name if id not stored
+      const resp = await axios.get(
+        `https://api.sendgrid.com/v3/whitelabel/domains`,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.SENDGRID_API_KEY}`,
+          },
+        }
+      );
+
+      const sgDomain = resp.data.find((d) => d.domain === name);
+      if (sgDomain) {
+        await axios.delete(
+          `https://api.sendgrid.com/v3/whitelabel/domains/${sgDomain.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${process.env.SENDGRID_API_KEY}`,
+            },
+          }
+        );
+      }
+    }
+  } catch (err) {
+    console.error("SendGrid domain delete failed:", err.response?.data || err);
+    // Not blocking local deletion — you may choose to return error instead
+  }
+
+  // 2️⃣ Delete DNS records from DB
+  await Prisma.dNSRecord.deleteMany({
+    where: { domainId: domain.id },
+  });
+
+  // 3️⃣ Delete domain from DB
+  await Prisma.domain.delete({
+    where: { id: domain.id },
+  });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Domain deleted successfully"));
+});
 
 // DNS record verification helper (fixed)
 async function verifyDnsRecord(record, domainName) {

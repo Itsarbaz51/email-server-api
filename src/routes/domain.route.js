@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middlewares/auth.middleware.js";
-import { addDomain, verifyDomain, getDomains } from "../controllers/domain.controller.js";
+import { addDomain, verifyDomain, getDomains, deleteDomain } from "../controllers/domain.controller.js";
 import { verifySubscription } from "../middlewares/subscription.middleware.js";
 
 const router = Router();
@@ -14,5 +14,6 @@ router.get("/get-domains",requireAuth,  getDomains);
 
 // verify domain with domain id
 router.get("/verify-domian/:domainName", verifyDomain);
+router.delete("/delete-domian/:domainName", requireAuth, deleteDomain);
 
 export default router;
