@@ -134,11 +134,20 @@ const getMailboxes = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Mailboxes fetched successfully", mailboxes));
 });
 
-// Update mailbox status or name
+// Update mailbox status, name, or password
 const updateMailbox = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, status, isActive, password } = req.body;
+  const { name, email, status, isActive, password } = req.body;
   const userId = req.user.id;
+
+  // Ensure at least one field is provided
+  if (
+    ![name, email, status, isActive, password].some(
+      (field) => field !== undefined && field !== null && field !== ""
+    )
+  ) {
+    return ApiError.send(res, 400, "At least one field is required");
+  }
 
   const mailbox = await Prisma.mailbox.findUnique({
     where: { id },
@@ -150,18 +159,32 @@ const updateMailbox = asyncHandler(async (req, res) => {
   }
 
   let hashedPassword;
-  if (mailbox.password && password) {
-    hashedPassword = await comparePassword(password, mailbox.password);
+  if (password) {
+    hashedPassword = await hashPassword(password);
   }
+
+  const dataToUpdate = {};
+
+  if (name) dataToUpdate.name = name;
+  if (email) dataToUpdate.email = email;
+
+  if (status) {
+    if (["ACTIVE", "SUSPENDED"].includes(status)) {
+      dataToUpdate.status = status;
+    } else {
+      return ApiError.send(res, 400, "Invalid status value");
+    }
+  }
+
+  if (typeof isActive !== "undefined") {
+    dataToUpdate.isActive = Boolean(isActive);
+  }
+
+  if (password) dataToUpdate.password = hashedPassword;
 
   const updated = await Prisma.mailbox.update({
     where: { id },
-    data: {
-      name,
-      status,
-      isActive,
-      ...(password ? { password: hashedPassword } : {}),
-    },
+    data: dataToUpdate,
     include: { domain: { select: { name: true } } },
   });
 
