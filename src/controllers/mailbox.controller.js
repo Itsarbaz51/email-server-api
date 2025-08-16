@@ -10,83 +10,91 @@ const createMailbox = asyncHandler(async (req, res) => {
   const userId = req.user.id;
 
   if (!name || !email || !domainId || !password) {
-    return ApiError.send(res, 400, "Name, email, domainId, and password are required");
+    return ApiError.send(
+      res,
+      400,
+      "Name, email, domainId, and password are required"
+    );
   }
 
   // Hash password before storing (assuming you have a hashPassword function)
-const hashedPassword = await hashPassword(password);
+  const hashedPassword = await hashPassword(password);
 
-// Fetch domain and include DNS records verification status
-const domain = await Prisma.domain.findUnique({
-  where: { id: domainId },
-  include: {
-    dnsRecords: true, // get all dns records of this domain
-  },
-});
-
-console.log(domain, domain.userId, userId);
-
-
-if (!domain || domain.userId !== userId) {
-  return ApiError.send(res, 403, "Unauthorized domain access");
-}
-
-// Check domain verified
-if (!domain.status === "VERIFIED") {
-  return ApiError.send(res, 400, "Domain must be verified before creating mailboxes");
-}
-
-// Check DNS records verified status
-const allDnsVerified = domain.dnsRecords.length > 0 && domain.dnsRecords.every(record => record.isVerified === true);
-
-let mailboxStatus;
-if (!allDnsVerified) {
-  // DNS records not fully verified
-  // Set mailbox status to PENDING
-  mailboxStatus = "PENDING";
-} else {
-  // Domain and DNS fully verified
-  mailboxStatus = "ACTIVE";
-}
-
-// Normalize full email
-const fullEmail = email.includes("@")
-  ? email.toLowerCase()
-  : `${email.toLowerCase()}@${domain.name}`;
-
-const [localPart] = fullEmail.split("@");
-
-if (!/^[a-zA-Z0-9._%+-]+$/.test(localPart)) {
-  return ApiError.send(res, 400, "Invalid mailbox email format");
-}
-
-// Check for existing mailbox
-const existingMailbox = await Prisma.mailbox.findFirst({
-  where: { emailAddress: fullEmail },
-});
-
-if (existingMailbox) {
-  return ApiError.send(res, 400, `Mailbox "${fullEmail}" already exists.`);
-}
-
-const mailbox = await Prisma.mailbox.create({
-  data: {
-    name,
-    emailAddress: fullEmail,
-    userId,
-    domainId,
-    password: hashedPassword,
-    status: mailboxStatus,    // Use dynamic status based on DNS verification
-    isActive: true,
-    usedStorageMB: 0,
-  },
-  include: {
-    domain: {
-      select: { name: true },
+  // Fetch domain and include DNS records verification status
+  const domain = await Prisma.domain.findUnique({
+    where: { id: domainId },
+    include: {
+      dnsRecords: true, // get all dns records of this domain
     },
-  },
-});
+  });
 
+  console.log(domain, domain.userId, userId);
+
+  if (!domain || domain.userId !== userId) {
+    return ApiError.send(res, 403, "Unauthorized domain access");
+  }
+
+  // Check domain verified
+  if (!domain.status === "VERIFIED") {
+    return ApiError.send(
+      res,
+      400,
+      "Domain must be verified before creating mailboxes"
+    );
+  }
+
+  // Check DNS records verified status
+  const allDnsVerified =
+    domain.dnsRecords.length > 0 &&
+    domain.dnsRecords.every((record) => record.isVerified === true);
+
+  let mailboxStatus;
+  if (!allDnsVerified) {
+    // DNS records not fully verified
+    // Set mailbox status to PENDING
+    mailboxStatus = "PENDING";
+  } else {
+    // Domain and DNS fully verified
+    mailboxStatus = "ACTIVE";
+  }
+
+  // Normalize full email
+  const fullEmail = email.includes("@")
+    ? email.toLowerCase()
+    : `${email.toLowerCase()}@${domain.name}`;
+
+  const [localPart] = fullEmail.split("@");
+
+  if (!/^[a-zA-Z0-9._%+-]+$/.test(localPart)) {
+    return ApiError.send(res, 400, "Invalid mailbox email format");
+  }
+
+  // Check for existing mailbox
+  const existingMailbox = await Prisma.mailbox.findFirst({
+    where: { emailAddress: fullEmail },
+  });
+
+  if (existingMailbox) {
+    return ApiError.send(res, 400, `Mailbox "${fullEmail}" already exists.`);
+  }
+
+  const mailbox = await Prisma.mailbox.create({
+    data: {
+      name,
+      emailAddress: fullEmail,
+      userId,
+      domainId,
+      password: hashedPassword,
+      status: mailboxStatus, // Use dynamic status based on DNS verification
+      isActive: true,
+      usedStorageMB: 0,
+    },
+    include: {
+      domain: {
+        select: { name: true },
+      },
+    },
+  });
 
   return res.status(201).json(
     new ApiResponse(201, "Mailbox created successfully", {
@@ -135,7 +143,7 @@ const updateMailbox = asyncHandler(async (req, res) => {
 
   let hashedPassword;
   if (mailbox.password && password) {
-    hashedPassword = await comparePassword(password, mailbox.password)
+    hashedPassword = await comparePassword(password, mailbox.password);
   }
 
   const updated = await Prisma.mailbox.update({
@@ -193,7 +201,9 @@ async function activatePendingMailboxes() {
     const domain = mailbox.domain;
 
     // Check if domain and all DNS records are verified
-    const allDnsVerified = domain.dnsRecords.length > 0 && domain.dnsRecords.every(record => record.verified === true);
+    const allDnsVerified =
+      domain.dnsRecords.length > 0 &&
+      domain.dnsRecords.every((record) => record.isVerified === true);
 
     if (domain.verified && allDnsVerified) {
       // Update mailbox status to ACTIVE
@@ -206,9 +216,11 @@ async function activatePendingMailboxes() {
   }
 }
 
-setInterval(() => {
-  activatePendingMailboxes().catch(console.error);
-}, 5 * 60 * 1000);
-
+setInterval(
+  () => {
+    activatePendingMailboxes().catch(console.error);
+  },
+  5 * 60 * 1000
+);
 
 export { createMailbox, getMailboxes, updateMailbox, deleteMailbox };

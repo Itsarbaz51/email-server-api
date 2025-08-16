@@ -91,9 +91,9 @@ export const createOrRenewSubscription = asyncHandler(async (req, res) => {
 
   const userId = req.user.id;
 
-  if (!plan || !billingCycle)
+  if (!plan || !billingCycle) {
     return ApiError.send(res, 400, "Plan and billing cycle are required");
-
+  }
   plan = plan.toUpperCase();
   billingCycle = billingCycle.toUpperCase();
 
