@@ -203,7 +203,7 @@ const deleteMailbox = asyncHandler(async (req, res) => {
     include: { domain: true },
   });
 
-  if (!mailbox || mailbox.domain.adminId !== userId) {
+  if (!mailbox || mailbox.domain.userId !== userId) {
     return ApiError.send(res, 403, "Unauthorized to delete mailbox.");
   }
 
