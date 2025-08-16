@@ -176,7 +176,7 @@ export const getDomains = asyncHandler(async (req, res) => {
 export const deleteDomain = asyncHandler(async (req, res) => {
   console.log(req.params);
   
-  const { name } = req.params;
+  const name = req.params.domainName;
   const userId = req.user.id;
 
   if (!name) return ApiError.send(res, 401, "Domain name is required");
