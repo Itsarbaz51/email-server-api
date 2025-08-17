@@ -126,19 +126,24 @@ const login = asyncHandler(async (req, res) => {
     const checkedPassword = await comparePassword(password, exitsMailbox.password);
     if (!checkedPassword) return ApiError.send(res, 403, "Password Invalid");
 
+    const updatedMailbox = await Prisma.mailbox.update({
+      where: { id: exitsMailbox.id },
+      data: { lastLoginAt: new Date() },
+    });
+
     const accessToken = generateAccessToken(
-      exitsMailbox.id,
-      exitsMailbox.emailAddress,
+      updatedMailbox.id,
+      updatedMailbox.emailAddress,
       "USER"
     );
     const refreshToken = generateRefreshToken(
-      exitsMailbox.id,
-      exitsMailbox.emailAddress,
+      updatedMailbox.id,
+      updatedMailbox.emailAddress,
       "USER"
     );
 
-    // mailboxSafe object me role inject karna
-    const { password: _, ...mailboxSafe } = exitsMailbox;
+    const { password, lastLoginAt, ...mailboxSafe } = updatedMailbox;
+
     const mailboxResponse = {
       ...mailboxSafe,
       role: "USER"
@@ -307,10 +312,10 @@ const updateProfile = asyncHandler(async (req, res) => {
 // get current user
 const getCurrentUser = asyncHandler(async (req, res) => {
   const userId = req?.user?.id
-  console.log(userId);  
+  console.log(userId);
   const mailboxId = req?.mailbox?.id
-  console.log("mailboxId",mailboxId);
-  
+  console.log("mailboxId", mailboxId);
+
 
   if (!userId && !mailboxId)
     return ApiError.send(res, 401, "Not authenticated");
@@ -333,8 +338,8 @@ const getCurrentUser = asyncHandler(async (req, res) => {
       where: { id: mailboxId },
     });
 
-    console.log("mailboxExits",mailboxExits);
-    
+    console.log("mailboxExits", mailboxExits);
+
 
     if (!mailboxExits) return ApiError.send(res, 404, "mailbox user not found")
     const { password: _, ...mailboxSafe } = mailboxExits;
@@ -344,8 +349,8 @@ const getCurrentUser = asyncHandler(async (req, res) => {
       role: "USER"
     };
 
-    console.log("mailboxResponse",mailboxResponse);
-    
+    console.log("mailboxResponse", mailboxResponse);
+
 
 
     return res.status(200).json(new ApiResponse(200, "OK", { user: mailboxResponse }));

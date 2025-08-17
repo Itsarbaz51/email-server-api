@@ -57,40 +57,40 @@ export const sendEmail = [
 
     // Upload attachments if any
     let attachmentRecords = [];
-   if (req.files && req.files.length > 0) {
-  for (let file of req.files) {
-    try {
-      const attKey = `emails/sent/${fromMailbox.user.email}/${Date.now()}-${file.originalname.replace(/\s+/g, "_")}`;
-      await uploadToS3({
-        bucket: process.env.ATTACHMENTS_BUCKET,
-        key: attKey,
-        body: file.buffer,
-        contentType: file.mimetype,
-      });
-      attachmentRecords.push({
-        mailboxId: fromMailbox.id,          // ✅ added
-        userId: fromMailbox.user.id,        // ✅ added
-        fileName: file.originalname,
-        fileSizeMB: Math.round(file.size / (1024 * 1024)),
-        mimeType: file.mimetype,
-        s3Key: attKey,
-        s3Bucket: process.env.ATTACHMENTS_BUCKET,
-      });
-    } catch (err) {
-      console.error("S3 upload (attachment) failed:", err);
+    if (req.files && req.files.length > 0) {
+      for (let file of req.files) {
+        try {
+          const attKey = `emails/sent/${fromMailbox.user.email}/${Date.now()}-${file.originalname.replace(/\s+/g, "_")}`;
+          await uploadToS3({
+            bucket: process.env.ATTACHMENTS_BUCKET,
+            key: attKey,
+            body: file.buffer,
+            contentType: file.mimetype,
+          });
+          attachmentRecords.push({
+            mailboxId: fromMailbox.id,          // ✅ added
+            userId: fromMailbox.user.id,        // ✅ added
+            fileName: file.originalname,
+            fileSizeMB: Math.round(file.size / (1024 * 1024)),
+            mimeType: file.mimetype,
+            s3Key: attKey,
+            s3Bucket: process.env.ATTACHMENTS_BUCKET,
+          });
+        } catch (err) {
+          console.error("S3 upload (attachment) failed:", err);
+        }
+      }
     }
-  }
-}
 
 
     // Prepare attachments for SendGrid
     const sendgridAttachments = req.files && req.files.length > 0
       ? req.files.map(file => ({
-          filename: file.originalname,
-          content: file.buffer.toString("base64"),
-          type: file.mimetype,
-          disposition: "attachment",
-        }))
+        filename: file.originalname,
+        content: file.buffer.toString("base64"),
+        type: file.mimetype,
+        disposition: "attachment",
+      }))
       : [];
 
     // Try sending email
@@ -106,13 +106,13 @@ export const sendEmail = [
       console.error("sendViaSendGrid error:", err);
 
       console.log("fromMailbox", fromMailbox);
-      
+
 
       // Store FAILED email
       await Prisma.sentEmail.create({
         data: {
-          mailboxId:fromMailbox.id,
-          userId:fromMailbox.user.id,
+          mailboxId: fromMailbox.id,
+          userId: fromMailbox.user.id,
           toEmail: Array.isArray(to) ? (to[0] || "") : to,
           subject,
           body: bodyS3Url,
@@ -125,7 +125,7 @@ export const sendEmail = [
     }
 
     console.log(fromMailbox);
-    
+
     // Store SENT email
     const sent = await Prisma.sentEmail.create({
       data: {
@@ -221,38 +221,30 @@ export const getSingleEmail = asyncHandler(async (req, res) => {
 
 // get all mails
 export const getAllMails = asyncHandler(async (req, res) => {
-    const { mailboxId } = req.params;
-    const userId = req.user?.id; // assuming middleware sets req.user
-  
-    if (!userId) {
-      return ApiError.send(res, 401, "Authentication required");
-    }
-  
-    // ✅ Check if mailbox belongs to the logged-in user
-    const mailbox = await Prisma.mailbox.findFirst({
-      where: { id: mailboxId, userId },
-    });
-    if (!mailbox) {
-      return ApiError.send(res, 404, "Mailbox not found or access denied");
-    }
-  
-    // 📩 Fetch received emails
-    const received = await Prisma.receivedEmail.findMany({
-      where: { mailboxId, userId },
-      orderBy: { receivedAt: "desc" },
-    });
-  
-    // 📤 Fetch sent emails
-    const sent = await Prisma.sentEmail.findMany({
-      where: { mailboxId, userId },
-      orderBy: { sentAt: "desc" },
-    });
-  
-    return res.status(200).json(
-      new ApiResponse(200, "All emails retrieved successfully", {
-        sent,
-        received,
-      })
-    );
+  const mailboxId  = req?.mailbox?.id;
+
+  const mailbox = await Prisma.mailbox.findFirst({
+    where: { id: mailboxId },
   });
-  
+
+  if (!mailbox) {
+    return ApiError.send(res, 404, "Mailbox not found or access denied");
+  }
+
+  const received = await Prisma.receivedEmail.findMany({
+    where: { mailboxId, userId },
+    orderBy: { receivedAt: "desc" },
+  });
+
+  const sent = await Prisma.sentEmail.findMany({
+    where: { mailboxId, userId },
+    orderBy: { sentAt: "desc" },
+  });
+
+  return res.status(200).json(
+    new ApiResponse(200, "All emails retrieved successfully", {
+      sent,
+      received,
+    })
+  );
+});
