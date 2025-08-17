@@ -163,8 +163,6 @@ export const sendEmail = [
   }),
 ];
 
-
-
 // receivedEmail - returns received + sent for a mailbox (mailbox auth required)
 export const receivedEmail = asyncHandler(async (req, res) => {
   const mailboxId = req.params.mailboxId;
@@ -190,7 +188,6 @@ export const receivedEmail = asyncHandler(async (req, res) => {
 
   return res.status(200).json(new ApiResponse(200, "Messages fetched", { received, sent }));
 });
-
 
 // getSingleMessage - fetch one message either from 'sent' or 'received'
 export const getSingleEmail = asyncHandler(async (req, res) => {
@@ -221,7 +218,7 @@ export const getSingleEmail = asyncHandler(async (req, res) => {
 
 // get all mails
 export const getAllMails = asyncHandler(async (req, res) => {
-  const mailboxId  = req?.mailbox?.id;
+  const mailboxId = req?.mailbox?.id;
 
   const mailbox = await Prisma.mailbox.findFirst({
     where: { id: mailboxId },
@@ -232,12 +229,12 @@ export const getAllMails = asyncHandler(async (req, res) => {
   }
 
   const received = await Prisma.receivedEmail.findMany({
-    where: { mailboxId, userId },
+    where: { mailboxId },
     orderBy: { receivedAt: "desc" },
   });
 
   const sent = await Prisma.sentEmail.findMany({
-    where: { mailboxId, userId },
+    where: { mailboxId },
     orderBy: { sentAt: "desc" },
   });
 
