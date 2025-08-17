@@ -117,14 +117,32 @@ const login = asyncHandler(async (req, res) => {
   });
 
   if (!user) {
-    const exitsMailbox = await Prisma.mailbox.findFirst({ where: { emailAddress: emailOrPhone } })
-    if (!exitsMailbox) return ApiError.send(res, 404, "Mailbox user not found")
-    const checkedPassword = await comparePassword(password, exitsMailbox.password)
-    if (!checkedPassword) return ApiError.send(res, 403, "Password Invalid")
-    const accessToken = generateAccessToken(exitsMailbox.id, exitsMailbox.emailAddress, "USER");
-    const refreshToken = generateRefreshToken(exitsMailbox.id, exitsMailbox.emailAddress, "USER");
+    const exitsMailbox = await Prisma.mailbox.findFirst({
+      where: { emailAddress: emailOrPhone }
+    });
 
+    if (!exitsMailbox) return ApiError.send(res, 404, "Mailbox user not found");
+
+    const checkedPassword = await comparePassword(password, exitsMailbox.password);
+    if (!checkedPassword) return ApiError.send(res, 403, "Password Invalid");
+
+    const accessToken = generateAccessToken(
+      exitsMailbox.id,
+      exitsMailbox.emailAddress,
+      "USER"
+    );
+    const refreshToken = generateRefreshToken(
+      exitsMailbox.id,
+      exitsMailbox.emailAddress,
+      "USER"
+    );
+
+    // mailboxSafe object me role inject karna
     const { password: _, ...mailboxSafe } = exitsMailbox;
+    const mailboxResponse = {
+      ...mailboxSafe,
+      role: "USER"
+    };
 
     return res
       .status(200)
@@ -142,7 +160,7 @@ const login = asyncHandler(async (req, res) => {
         domain: ".primewebdev.in",
         maxAge: 7 * 24 * 60 * 60 * 1000,
       })
-      .json(new ApiResponse(200, "Login successful", mailboxSafe));
+      .json(new ApiResponse(200, "Login successful", mailboxResponse));
   }
 
   console.log("USER FOUND:", user);
