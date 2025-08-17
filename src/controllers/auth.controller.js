@@ -312,7 +312,7 @@ const getCurrentUser = asyncHandler(async (req, res) => {
   console.log("mailboxId",mailboxId);
   
 
-  if (!userId || !mailboxId)
+  if (!userId && !mailboxId)
     return ApiError.send(res, 401, "Not authenticated");
 
   if (userId) {
