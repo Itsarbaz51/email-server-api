@@ -308,6 +308,8 @@ const updateProfile = asyncHandler(async (req, res) => {
 const getCurrentUser = asyncHandler(async (req, res) => {
   const userId = req.user || req.user.id
   const mailboxId = req.mailbox || req.mailbox.id
+  console.log("mailboxId",mailboxId);
+  
 
   if (!userId || !mailboxId)
     return ApiError.send(res, 401, "Not authenticated");
@@ -330,6 +332,8 @@ const getCurrentUser = asyncHandler(async (req, res) => {
       where: { id: mailboxId },
     });
 
+    console.log("mailboxExits",mailboxExits);
+    
 
     if (!mailboxExits) return ApiError.send(res, 404, "mailbox user not found")
     const { password: _, ...mailboxSafe } = mailboxExits;
@@ -338,6 +342,9 @@ const getCurrentUser = asyncHandler(async (req, res) => {
       ...mailboxSafe,
       role: "USER"
     };
+
+    console.log("mailboxResponse",mailboxResponse);
+    
 
 
     return res.status(200).json(new ApiResponse(200, "OK", { user: mailboxResponse }));
