@@ -264,3 +264,64 @@ export const getSentMails = asyncHandler(async (req, res) => {
 
 
 })
+
+// get single mail
+export const getBySingleMail = asyncHandler(async (req, res) => {
+  const mailboxId = req.mailbox?.id;
+  const { id } = req.params;
+
+  if (!id) {
+    return ApiError.send(res, 400, "Mail ID is required");
+  }
+
+  if (!mailboxId) {
+    return ApiError.send(res, 401, "Unauthorized Access");
+  }
+
+  let mail = await Prisma.sendEmail.findFirst({
+    where: {
+      id,
+      mailboxId,
+    },
+    include: {
+      attachments: true,
+      mailbox: true,
+    },
+  });
+
+  let type = "sent";
+
+  if (!mail) {
+    mail = await Prisma.receivedEmail.findFirst({
+      where: {
+        id,
+        toMailboxId: mailboxId,
+      },
+      include: {
+        attachments: true,
+        mailbox: true,
+      },
+    });
+    type = "received";
+  }
+
+  if (!mail) {
+    return ApiError.send(res, 404, "Mail not found or access denied");
+  }
+
+  const { mailbox: senderMailbox, ...mailSafe } = mail;
+  const senderSafe = {
+    id: senderMailbox?.id,
+    emailAddress: senderMailbox?.emailAddress,
+    name: senderMailbox?.name || "",
+  };
+
+  return res.status(200).json({
+    success: true,
+    type,
+    data: {
+      ...mailSafe,
+      sender: senderSafe,
+    },
+  });
+});
