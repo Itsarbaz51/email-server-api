@@ -142,7 +142,7 @@ const login = asyncHandler(async (req, res) => {
       "USER"
     );
 
-    const { password, lastLoginAt, ...mailboxSafe } = updatedMailbox;
+    const { password: _, lastLoginAt, ...mailboxSafe } = updatedMailbox;
 
     const mailboxResponse = {
       ...mailboxSafe,
