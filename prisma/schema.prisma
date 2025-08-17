@@ -99,9 +99,7 @@ model Domain {
   userId            String
   sendgridDomainId  String?
   status            DomainStatus @default(PENDING)
-  dkimEnabled       Boolean      @default(false)
-  dkimTokens        String       @default("[]")
-  verificationToken String?
+  isVerified       Boolean      @default(false)
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
@@ -158,8 +156,11 @@ model SentEmail {
   toEmail   String
   subject   String
   body      String
-  messageId String?
-  status    String   @default("SENT") // SENT, FAILED, BOUNCED
+  messageId String?  @default(uuid()) @unique 
+  deleted   Boolean  @default(false)
+  starred   Boolean  @default(false)
+  archive   Boolean  @default(false)
+  status    String   @default("PENDING") 
   sentAt    DateTime @default(now())
 
   mailbox     Mailbox      @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
@@ -177,6 +178,9 @@ model ReceivedEmail {
   subject    String
   body       String
   messageId  String
+  deleted   Boolean  @default(false)
+  starred   Boolean  @default(false)
+  archive   Boolean  @default(false)
   receivedAt DateTime @default(now())
 
   mailbox     Mailbox      @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
@@ -193,7 +197,7 @@ model Attachment {
   emailId         String?
   receivedEmailId String? // Nullable for sent emails
   fileName        String
-  fileSizeMB      Int
+  fileSize        Int
   mimeType        String
   s3Key           String // S3 object path
   s3Bucket        String

@@ -16,6 +16,12 @@ if (!ATTACHMENTS_BUCKET) {
   console.warn("⚠️ ATTACHMENTS_BUCKET not set — attachment uploads will fail.");
 }
 
+function formatFileSize(bytes) {
+  if (bytes < 1024) return bytes + " B";
+  else if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  else return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
+
 /**
  * Local subscription check for SMTP context.
  * Throws ApiError on failure.
@@ -161,7 +167,7 @@ export const incomingServer = new SMTPServer({
                       userId: mailbox.userId,
                       receivedEmailId: received.id,
                       fileName: clean,
-                      fileSizeMB: Math.round((att.size || att.content?.length || 0) / (1024 * 1024)),
+                      fileSize: formatFileSize(file.size),
                       mimeType: att.contentType || "application/octet-stream",
                       s3Key,
                       s3Bucket: ATTACHMENTS_BUCKET,
