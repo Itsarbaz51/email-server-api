@@ -100,6 +100,7 @@ const signup = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, "Registered successfully", { user }));
 });
 
+// login
 const login = asyncHandler(async (req, res) => {
   const { emailOrPhone, password } = req.body;
   console.log("LOGIN BODY:", req.body);
@@ -150,6 +151,7 @@ const login = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Login successful", userSafe));
 });
 
+// refreshAccessToken
 const refreshAccessToken = asyncHandler(async (req, res) => {
   const token = req.cookies?.refreshToken || req.body?.refreshToken;
   if (!token) return ApiError.send(res, 401, "Refresh token missing");
@@ -212,6 +214,50 @@ const logout = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, "Logged out successfully"));
 });
 
+// update profile
+const updateProfile = asyncHandler(async (req, res) => {
+  if (!req.user || !req.user.id)
+    return ApiError.send(res, 401, "Not authenticated");
+
+  const { name, email, phone, password } = req.body;
+
+  // Check: at least one field required
+  if (![name, email, phone, password].some((field) => field && field.trim && field.trim() !== "")) {
+    return ApiError.send(res, 400, "At least one field is required to update profile");
+  }
+
+  // Prepare update data dynamically
+  const updateData = {};
+  if (name) updateData.name = name;
+  if (email) updateData.email = email;
+  if (phone) updateData.phone = phone;
+  if (password) {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    updateData.password = hashedPassword;
+  }
+
+  // Update in DB
+  const updatedUser = await Prisma.user.update({
+    where: { id: req.user.id },
+    data: updateData,
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      role: true,
+      isActive: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Profile updated successfully", { user: updatedUser }));
+});
+
+// get current user
 const getCurrentUser = asyncHandler(async (req, res) => {
   console.log("REQ.USER:", req.user);
 
@@ -220,7 +266,7 @@ const getCurrentUser = asyncHandler(async (req, res) => {
 
   const user = await Prisma.user.findUnique({
     where: { id: req.user.id },
-    select: { id: true, name: true, email: true, role: true, createdAt: true },
+    select: { id: true, name: true, email: true, role: true, isActive: true, phone: phone, createdAt: true },
   });
   console.log("USER FROM DB:", user);
 
@@ -345,4 +391,5 @@ export {
   changePassword,
   forgotPassword,
   resetPassword,
+  updateProfile,
 };
