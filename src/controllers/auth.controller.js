@@ -306,20 +306,43 @@ const updateProfile = asyncHandler(async (req, res) => {
 
 // get current user
 const getCurrentUser = asyncHandler(async (req, res) => {
-  console.log("REQ.USER:", req.user);
+  const userId = req.user || req.user.id
+  const mailboxId = req.mailbox || req.mailbox.id
 
-  if (!req.user || !req.user.id)
+  if (!userId || !mailboxId)
     return ApiError.send(res, 401, "Not authenticated");
 
-  const user = await Prisma.user.findUnique({
-    where: { id: req.user.id },
-    select: { id: true, name: true, email: true, role: true, isActive: true, phone: true, createdAt: true },
-  });
-  console.log("USER FROM DB:", user);
+  if (userId) {
 
-  if (!user) return ApiError.send(res, 404, "User not found");
+    const user = await Prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, email: true, role: true, isActive: true, phone: true, createdAt: true },
+    });
 
-  return res.status(200).json(new ApiResponse(200, "OK", { user: user }));
+    if (!user) return ApiError.send(res, 404, "User not found");
+
+    return res.status(200).json(new ApiResponse(200, "OK", { user: user }));
+  }
+
+  if (mailboxId) {
+
+    const mailboxExits = await Prisma.user.findUnique({
+      where: { id: mailboxId },
+    });
+
+
+    if (!mailboxExits) return ApiError.send(res, 404, "mailbox user not found")
+    const { password: _, ...mailboxSafe } = mailboxExits;
+
+    const mailboxResponse = {
+      ...mailboxSafe,
+      role: "USER"
+    };
+
+
+    return res.status(200).json(new ApiResponse(200, "OK", { user: mailboxResponse }));
+  }
+
 });
 
 // change pass
