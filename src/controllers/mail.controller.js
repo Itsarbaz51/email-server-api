@@ -273,10 +273,10 @@ export const getBySingleMail = asyncHandler(async (req, res) => {
   if (!id) return ApiError.send(res, 400, "Mail ID is required");
   if (!mailboxId) return ApiError.send(res, 401, "Unauthorized Access");
 
-  if (!Prisma?.sendEmail || !Prisma?.receivedEmail)
+  if (!Prisma?.sentEmail || !Prisma?.receivedEmail)
     return ApiError.send(res, 500, "Prisma models not initialized");
 
-  let mail = await Prisma.sendEmail.findFirst({
+  let mail = await Prisma.sentEmail.findFirst({
     where: { id, mailboxId },
     include: { attachments: true, mailbox: true },
   });
