@@ -116,6 +116,35 @@ const login = asyncHandler(async (req, res) => {
     select: { id: true, email: true, password: true, role: true, name: true },
   });
 
+  if (!user) {
+    const exitsMailbox = await Prisma.mailbox.findFirst({ where: { emailAddress: emailOrPhone } })
+    if (!exitsMailbox) return ApiError.send(res, 404, "Mailbox user not found")
+    const checkedPassword = await comparePassword(password, exitsMailbox.password)
+    if (!checkedPassword) return ApiError.send(res, 403, "Password Invalid")
+    const accessToken = generateAccessToken(exitsMailbox.id, exitsMailbox.emailAddress, "USER");
+    const refreshToken = generateRefreshToken(exitsMailbox.id, exitsMailbox.emailAddress, "USER");
+
+    const { password: _, ...mailboxSafe } = exitsMailbox;
+
+    return res
+      .status(200)
+      .cookie("accessToken", accessToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        domain: ".primewebdev.in",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      })
+      .cookie("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        domain: ".primewebdev.in",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      })
+      .json(new ApiResponse(200, "Login successful", mailboxSafe));
+  }
+
   console.log("USER FOUND:", user);
 
   console.log(await comparePassword(password, user.password));
