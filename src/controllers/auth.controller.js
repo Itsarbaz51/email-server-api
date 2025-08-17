@@ -329,7 +329,7 @@ const getCurrentUser = asyncHandler(async (req, res) => {
 
   if (mailboxId) {
 
-    const mailboxExits = await Prisma.user.findUnique({
+    const mailboxExits = await Prisma.mailbox.findUnique({
       where: { id: mailboxId },
     });
 
