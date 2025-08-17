@@ -266,7 +266,7 @@ const getCurrentUser = asyncHandler(async (req, res) => {
 
   const user = await Prisma.user.findUnique({
     where: { id: req.user.id },
-    select: { id: true, name: true, email: true, role: true, isActive: true, phone: phone, createdAt: true },
+    select: { id: true, name: true, email: true, role: true, isActive: true, phone: true, createdAt: true },
   });
   console.log("USER FROM DB:", user);
 
