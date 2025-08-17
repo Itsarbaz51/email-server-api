@@ -259,7 +259,7 @@ export const getSentMails = asyncHandler(async (req, res) => {
   if (!sendMails) return ApiError.send(res, 404, "sent mails not found")
 
   return res.status(200).json(
-    new ApiResponse(200, "All sent mails success")
+    new ApiResponse(200, "All sent mails success", sendMails)
   )
 
 
