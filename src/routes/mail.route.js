@@ -1,6 +1,6 @@
 // src/routes/mail.route.js
 import express from "express";
-import { getAllMails, getSingleEmail, receivedEmail, sendEmail } from "../controllers/mail.controller.js";
+import { getAllMails, getSentMails, getSingleEmail, receivedEmail, sendEmail } from "../controllers/mail.controller.js";
 import { requireAuth } from "../middlewares/auth.middleware.js";
 import { verifySubscription } from "../middlewares/subscription.middleware.js";
 
@@ -11,5 +11,6 @@ router.post('/sent-email',verifySubscription("sendMail"), sendEmail)
 router.get('/recived-email', receivedEmail)
 router.get('/get-single-email', getSingleEmail)
 router.get('/get-all-mails', getAllMails)
+router.get('/get-all-sent-mails', getSentMails)
 
 export default router;

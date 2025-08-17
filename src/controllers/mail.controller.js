@@ -245,3 +245,22 @@ export const getAllMails = asyncHandler(async (req, res) => {
     })
   );
 });
+
+// get sent mails
+export const getSentMails = asyncHandler(async (req, res) => {
+  const mailboxId = req.mailbox.id
+
+  if (!mailboxId) {
+    return ApiError.send(res, 401, "Unauthraized Mailbox User")
+  }
+
+  const sendMails = await Prisma.mailbox.findMany({ where: { mailboxId } })
+
+  if (!sendMails) return ApiError.send(res, 404, "sent mails not found")
+
+  return res.status(200).json(
+    new ApiResponse(200, "All sent mails success")
+  )
+
+
+})
