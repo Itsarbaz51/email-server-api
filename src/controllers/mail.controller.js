@@ -303,7 +303,7 @@ export const getBySingleMail = asyncHandler(async (req, res) => {
 
   if (!mail) {
     mail = await Prisma.receivedEmail.findFirst({
-      where: { id, toMailboxId: mailboxId },
+      where: { id, MailboxId: mailboxId },
       include: { attachments: true, mailbox: true },
     });
     type = "received";
