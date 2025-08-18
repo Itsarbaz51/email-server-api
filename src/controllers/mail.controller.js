@@ -8,16 +8,6 @@ import { uploadToS3 } from "../services/s3Service.js";
 import multer from "multer";
 
 const upload = multer({ storage: multer.memoryStorage() });
-function formatFileSize(bytes) {
-  if (bytes < 1024) return { value: bytes, unit: "B" };
-  else if (bytes < 1024 * 1024)
-    return { value: parseFloat((bytes / 1024).toFixed(1)), unit: "KB" };
-  else
-    return {
-      value: parseFloat((bytes / (1024 * 1024)).toFixed(1)),
-      unit: "MB",
-    };
-}
 
 // sendEmail - API for authenticated mailbox to send outbound email.
 export const sendEmail = [
@@ -88,7 +78,7 @@ export const sendEmail = [
             mailboxId: fromMailbox.id, // ✅ added
             userId: fromMailbox.user.id, // ✅ added
             fileName: file.originalname,
-            fileSize: formatFileSize(file.size),
+            fileSize: file.size,
             mimeType: file.mimetype,
             s3Key: attKey,
             s3Bucket: process.env.ATTACHMENTS_BUCKET,
