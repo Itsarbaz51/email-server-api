@@ -21,6 +21,6 @@ router.get("/get-single-email", getSingleEmail);
 router.get("/get-all-mails", getAllMails);
 router.get("/get-all-sent-mails", getSentMails);
 router.get("/get-by-single-mail/:id", getBySingleMail);
-router.get("/delete-mail/:id", deleteMail);
+router.delete("/delete-mail/:id", deleteMail);
 
 export default router;
