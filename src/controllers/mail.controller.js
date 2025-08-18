@@ -9,9 +9,10 @@ import multer from "multer";
 
 const upload = multer({ storage: multer.memoryStorage() });
 function formatFileSize(bytes) {
-  if (bytes < 1024) return bytes + " B";
-  else if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-  else return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  if (bytes < 1024) return Number(bytes + " B");
+  else if (bytes < 1024 * 1024)
+    return Number((bytes / 1024).toFixed(1) + " KB");
+  else return Number((bytes / (1024 * 1024)).toFixed(1) + " MB");
 }
 
 // sendEmail - API for authenticated mailbox to send outbound email.
