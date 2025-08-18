@@ -416,3 +416,106 @@ export const bulkMailDelete = asyncHandler(async (req, res) => {
     },
   });
 });
+
+// move to trash (single + bulk)
+export const moveToTrash = asyncHandler(async (req, res) => {
+  const mailboxId = req.mailbox?.id;
+  const { mailId, mailsId } = req.body;
+
+  if (!mailboxId) {
+    return ApiError.send(res, 401, "Mailbox not found");
+  }
+
+  // decide single or bulk
+  const ids =
+    mailsId && Array.isArray(mailsId) && mailsId.length > 0
+      ? mailsId
+      : mailId
+        ? [mailId]
+        : null;
+
+  if (!ids) {
+    return ApiError.send(res, 400, "No mail ID(s) provided");
+  }
+
+  // sent mails
+  const deletedSent = await Prisma.sentEmail.updateMany({
+    where: {
+      id: { in: ids },
+      mailboxId,
+      deleted: false,
+    },
+    data: { deleted: true },
+  });
+
+  // received mails
+  const deletedReceived = await Prisma.receivedEmail.updateMany({
+    where: {
+      id: { in: ids },
+      mailboxId,
+      deleted: false,
+    },
+    data: { deleted: true },
+  });
+
+  if (deletedSent.count === 0 && deletedReceived.count === 0) {
+    return ApiError.send(
+      res,
+      404,
+      "No matching mail(s) found to move to trash"
+    );
+  }
+
+  return res.json({
+    message: "Mail(s) moved to trash successfully",
+    deleted: {
+      sent: deletedSent.count,
+      received: deletedReceived.count,
+      total: deletedSent.count + deletedReceived.count,
+    },
+  });
+});
+
+// move to archive (only single)
+export const moveToArchive = asyncHandler(async (req, res) => {
+  const mailboxId = req.mailbox?.id;
+  const { mailId } = req.body;
+
+  if (!mailboxId) {
+    return ApiError.send(res, 401, "Mailbox not found");
+  }
+
+  if (!mailId) {
+    return ApiError.send(res, 400, "No mail ID provided");
+  }
+
+  const archivedSent = await Prisma.sentEmail.updateMany({
+    where: {
+      id: mailId,
+      mailboxId,
+      archive: false,
+    },
+    data: { archive: true },
+  });
+
+  const archivedReceived = await Prisma.receivedEmail.updateMany({
+    where: {
+      id: mailId,
+      mailboxId,
+      archive: false,
+    },
+    data: { archive: true },
+  });
+
+  if (archivedSent.count === 0 && archivedReceived.count === 0) {
+    return ApiError.send(res, 404, "No matching mail found to archive");
+  }
+
+  return res.json({
+    message: "Mail archived successfully",
+    archived: {
+      sent: archivedSent.count,
+      received: archivedReceived.count,
+    },
+  });
+});
