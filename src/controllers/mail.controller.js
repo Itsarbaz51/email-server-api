@@ -270,7 +270,12 @@ export const getSentMails = asyncHandler(async (req, res) => {
     return ApiError.send(res, 401, "Unauthraized Mailbox User");
   }
 
-  const sendMails = await Prisma.sentEmail.findMany({ where: { mailboxId } });
+  const sendMails = await Prisma.sentEmail.findMany({
+    where: { mailboxId },
+    include: {
+      attachments: ture,
+    },
+  });
 
   if (!sendMails) return ApiError.send(res, 404, "sent mails not found");
 
