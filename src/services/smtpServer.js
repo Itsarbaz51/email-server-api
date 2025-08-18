@@ -115,18 +115,14 @@ export const incomingServer = new SMTPServer({
             // Save body to S3 if bucket set, else fallback to inline
             let bodyReference;
             try {
-              const emailBody = parsed.html || parsed.text || "";
-              if (EMAIL_BODY_BUCKET) {
-                const bodyKey = `emails/received/${mailbox.user.email}/${Date.now()}-body.html`;
-                await uploadToS3({
-                  bucket: EMAIL_BODY_BUCKET,
-                  key: bodyKey,
-                  body: Buffer.from(emailBody, "utf-8"),
-                  contentType: "text/html",
-                });
-              } else {
-                bodyReference = parsed.text || parsed.html || "";
-              }
+              const emailBody = parsed.html || parsed.text;
+              const bodyKey = `emails/received/${mailbox.user.email}/${Date.now()}-body.html`;
+              bodyReference = await uploadToS3({
+                bucket: EMAIL_BODY_BUCKET,
+                key: bodyKey,
+                body: Buffer.from(emailBody, "utf-8"),
+                contentType: "text/html",
+              });
             } catch (s3Err) {
               console.warn("S3 body upload failed, storing inline body:", s3Err?.message || s3Err);
               return ApiError.send(res, 500, "Failed to store email body smtp", bodyReference);
