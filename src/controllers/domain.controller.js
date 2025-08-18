@@ -163,8 +163,8 @@ export const getDomains = asyncHandler(async (req, res) => {
   });
 
 
-  if (!domains || domains.length === 0) {
-    return ApiError.send(res, 404, "Domain records not found");
+  if (domains) {
+    return ApiError.send(res, 404, "Domain already exists");
   }
 
   return res.status(200).json(
