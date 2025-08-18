@@ -7,14 +7,12 @@ import { sendViaSendGrid } from "../services/sendgridService.js";
 import { uploadToS3 } from "../services/s3Service.js";
 import multer from "multer";
 
-
 const upload = multer({ storage: multer.memoryStorage() });
 function formatFileSize(bytes) {
   if (bytes < 1024) return bytes + " B";
   else if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
   else return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
-
 
 // sendEmail - API for authenticated mailbox to send outbound email.
 export const sendEmail = [
@@ -24,7 +22,11 @@ export const sendEmail = [
     const senderMailboxId = req.mailbox?.id;
 
     if (!from || !to || !subject || !body) {
-      return ApiError.send(res, 400, "Missing required fields: from, to, subject, body");
+      return ApiError.send(
+        res,
+        400,
+        "Missing required fields: from, to, subject, body"
+      );
     }
     if (!senderMailboxId) {
       return ApiError.send(res, 401, "Mailbox authentication required");
@@ -43,7 +45,11 @@ export const sendEmail = [
     });
 
     if (!fromMailbox) {
-      return ApiError.send(res, 403, "Unauthorized sender or domain not verified");
+      return ApiError.send(
+        res,
+        403,
+        "Unauthorized sender or domain not verified"
+      );
     }
 
     // Upload email body to S3
@@ -74,8 +80,8 @@ export const sendEmail = [
             contentType: file.mimetype,
           });
           attachmentRecords.push({
-            mailboxId: fromMailbox.id,          // ✅ added
-            userId: fromMailbox.user.id,        // ✅ added
+            mailboxId: fromMailbox.id, // ✅ added
+            userId: fromMailbox.user.id, // ✅ added
             fileName: file.originalname,
             fileSize: formatFileSize(file.size),
             mimeType: file.mimetype,
@@ -88,16 +94,16 @@ export const sendEmail = [
       }
     }
 
-
     // Prepare attachments for SendGrid
-    const sendgridAttachments = req.files && req.files.length > 0
-      ? req.files.map(file => ({
-        filename: file.originalname,
-        content: file.buffer.toString("base64"),
-        type: file.mimetype,
-        disposition: "attachment",
-      }))
-      : [];
+    const sendgridAttachments =
+      req.files && req.files.length > 0
+        ? req.files.map((file) => ({
+            filename: file.originalname,
+            content: file.buffer.toString("base64"),
+            type: file.mimetype,
+            disposition: "attachment",
+          }))
+        : [];
 
     // Try sending email
     try {
@@ -113,13 +119,12 @@ export const sendEmail = [
 
       console.log("fromMailbox", fromMailbox);
 
-
       // Store FAILED email
       await Prisma.sentEmail.create({
         data: {
           mailboxId: fromMailbox.id,
           userId: fromMailbox.user.id,
-          toEmail: Array.isArray(to) ? (to[0] || "") : to,
+          toEmail: Array.isArray(to) ? to[0] || "" : to,
           subject,
           body: bodyS3Url,
           status: "FAILED",
@@ -137,7 +142,7 @@ export const sendEmail = [
       data: {
         mailboxId: fromMailbox.id,
         userId: fromMailbox.user.id,
-        toEmail: Array.isArray(to) ? (to[0] || "") : to,
+        toEmail: Array.isArray(to) ? to[0] || "" : to,
         subject,
         body: bodyS3Url,
         status: "SENT",
@@ -148,7 +153,10 @@ export const sendEmail = [
     // Create received email record if recipient exists
     const recipient = Array.isArray(to) ? to[0] : to;
     const toMailbox = await Prisma.mailbox.findFirst({
-      where: { emailAddress: recipient.toLowerCase(), domain: { status: "VERIFIED" } },
+      where: {
+        emailAddress: recipient.toLowerCase(),
+        domain: { status: "VERIFIED" },
+      },
       select: { id: true, userId: true },
     });
 
@@ -165,7 +173,9 @@ export const sendEmail = [
       });
     }
 
-    return res.status(201).json(new ApiResponse(201, "Email sent", { sentId: sent.id }));
+    return res
+      .status(201)
+      .json(new ApiResponse(201, "Email sent", { sentId: sent.id }));
   }),
 ];
 
@@ -192,7 +202,9 @@ export const receivedEmail = asyncHandler(async (req, res) => {
     include: { mailbox: { select: { emailAddress: true } } },
   });
 
-  return res.status(200).json(new ApiResponse(200, "Messages fetched", { received, sent }));
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Messages fetched", { received, sent }));
 });
 
 // getSingleMessage - fetch one message either from 'sent' or 'received'
@@ -211,7 +223,10 @@ export const getSingleEmail = asyncHandler(async (req, res) => {
   } else if (type === "received") {
     message = await Prisma.receivedEmail.findFirst({
       where: { id, mailboxId: mailboxAuthId },
-      include: { mailbox: { select: { emailAddress: true } }, attachments: true },
+      include: {
+        mailbox: { select: { emailAddress: true } },
+        attachments: true,
+      },
     });
   } else {
     return ApiError.send(res, 400, "Invalid type param");
@@ -254,22 +269,20 @@ export const getAllMails = asyncHandler(async (req, res) => {
 
 // get sent mails
 export const getSentMails = asyncHandler(async (req, res) => {
-  const mailboxId = req.mailbox.id
+  const mailboxId = req.mailbox.id;
 
   if (!mailboxId) {
-    return ApiError.send(res, 401, "Unauthraized Mailbox User")
+    return ApiError.send(res, 401, "Unauthraized Mailbox User");
   }
 
-  const sendMails = await Prisma.sentEmail.findMany({ where: { mailboxId } })
+  const sendMails = await Prisma.sentEmail.findMany({ where: { mailboxId } });
 
-  if (!sendMails) return ApiError.send(res, 404, "sent mails not found")
+  if (!sendMails) return ApiError.send(res, 404, "sent mails not found");
 
-  return res.status(200).json(
-    new ApiResponse(200, "All sent mails success", sendMails)
-  )
-
-
-})
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "All sent mails success", sendMails));
+});
 
 // get single mail
 export const getBySingleMail = asyncHandler(async (req, res) => {
@@ -310,5 +323,56 @@ export const getBySingleMail = asyncHandler(async (req, res) => {
     success: true,
     type,
     data: { ...mailSafe, sender: senderSafe },
+  });
+});
+
+// delete send or receiced mail
+export const deleteMail = asyncHandler(async (req, res) => {
+  const mailboxId = req.mailbox?.id;
+  const { id } = req.params;
+
+  if (!id) return ApiError.send(res, 400, "Mail ID is required");
+  if (!mailboxId) return ApiError.send(res, 401, "Unauthorized Access");
+
+  if (!Prisma?.sentEmail || !Prisma?.receivedEmail)
+    return ApiError.send(res, 500, "Prisma models not initialized");
+
+  let mail = await Prisma.sentEmail.findFirst({
+    where: { id, mailboxId },
+    include: { attachments: true, mailbox: true },
+  });
+
+  let type = "sent";
+
+  if (!mail) {
+    mail = await Prisma.receivedEmail.findFirst({
+      where: { id, toMailboxId: mailboxId },
+      include: { attachments: true, mailbox: true },
+    });
+    type = "received";
+  }
+
+  if (!mail) return ApiError.send(res, 404, "Mail not found or access denied");
+
+  if (mail.attachments?.length) {
+    await Prisma.attachment.deleteMany({
+      where: { emailId: mail.id },
+    });
+  }
+
+  if (type === "sent") {
+    await Prisma.sentEmail.delete({
+      where: { id: mail.id },
+    });
+  } else {
+    await Prisma.receivedEmail.delete({
+      where: { id: mail.id },
+    });
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: `Mail (${type}) deleted successfully`,
+    id: mail.id,
   });
 });
