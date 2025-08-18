@@ -376,3 +376,43 @@ export const deleteMail = asyncHandler(async (req, res) => {
     id: mail.id,
   });
 });
+
+// bulk mail delete
+export const bulkMailDelete = asyncHandler(async (req, res) => {
+  const mailboxId = req.mailbox?.id;
+  const { mailsId } = req.body;
+
+  if (!mailboxId) {
+    return ApiError.send(res, 401, "Mailbox not found");
+  }
+
+  if (!mailsId || !Array.isArray(mailsId) || mailsId.length === 0) {
+    return ApiError.send(res, 400, "No mail IDs provided");
+  }
+
+  const deletedSent = await Prisma.sentEmail.deleteMany({
+    where: {
+      id: { in: mailsId },
+      mailboxId: mailboxId,
+    },
+  });
+
+  const deletedReceived = await Prisma.receivedEmail.deleteMany({
+    where: {
+      id: { in: mailsId },
+      mailboxId: mailboxId,
+    },
+  });
+
+  if (deletedSent.count === 0 && deletedReceived.count === 0) {
+    return ApiError.send(res, 404, "No matching mails found to delete");
+  }
+
+  return res.json({
+    message: "Mails deleted successfully",
+    deleted: {
+      sent: deletedSent.count,
+      received: deletedReceived.count,
+    },
+  });
+});

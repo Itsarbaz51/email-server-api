@@ -1,6 +1,7 @@
 // src/routes/mail.route.js
 import express from "express";
 import {
+    bulkMailDelete,
   deleteMail,
   getAllMails,
   getBySingleMail,
@@ -22,5 +23,6 @@ router.get("/get-all-mails", getAllMails);
 router.get("/get-all-sent-mails", getSentMails);
 router.get("/get-by-single-mail/:id", getBySingleMail);
 router.delete("/delete-mail/:id", deleteMail);
+router.delete("/bulk-delete-mail", bulkMailDelete);
 
 export default router;
