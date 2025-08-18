@@ -3,7 +3,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 
 const app = express();
-const data = "10mb";
+const data = "50mb";
 
 app.use(
   cors({
@@ -23,7 +23,7 @@ app.use(
 );
 
 app.use(express.json({ limit: data }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: data }));
 app.use(cookieParser());
 
 import authRoutes from "./routes/auth.route.js";
