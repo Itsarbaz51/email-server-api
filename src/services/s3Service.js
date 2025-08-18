@@ -30,8 +30,8 @@ console.log("s3", s3);
  * @returns {Promise<string>} - S3 object URL
  */
 export async function uploadToS3({ bucket, key, body, contentType }) {
-  console.log("bucket",bucket, "key",key, "body",body, "contentType",contentType);
-  
+  console.log("bucket", bucket, "key", key, "body", body, "contentType", contentType);
+
   if (!bucket || !key || !body) {
     return ApiError.send(resizeBy, 401, "❌ Missing required parameters for S3 upload");
   }
@@ -45,11 +45,11 @@ export async function uploadToS3({ bucket, key, body, contentType }) {
 
   console.log("Uploading to S3:", params);
   
-
   try {
     await s3.putObject(params).promise();
     console.log(`✅ Uploaded to S3: ${bucket}/${key}`);
-    return `https://${bucket}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+    // return `https://${bucket}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+    return key;
   } catch (error) {
     console.error("❌ S3 Upload Error:", error);
     throw error;
