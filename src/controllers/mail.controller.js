@@ -346,7 +346,7 @@ export const deleteMail = asyncHandler(async (req, res) => {
 
   if (!mail) {
     mail = await Prisma.receivedEmail.findFirst({
-      where: { id, toMailboxId: mailboxId },
+      where: { id, mailboxId: mailboxId },
       include: { attachments: true, mailbox: true },
     });
     type = "received";
