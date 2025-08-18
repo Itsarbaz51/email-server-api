@@ -273,7 +273,7 @@ export const getSentMails = asyncHandler(async (req, res) => {
   const sendMails = await Prisma.sentEmail.findMany({
     where: { mailboxId },
     include: {
-      attachments: ture,
+      attachments: true,
     },
   });
 
