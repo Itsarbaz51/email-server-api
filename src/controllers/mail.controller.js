@@ -237,7 +237,7 @@ export const getAllMails = asyncHandler(async (req, res) => {
   const mailboxId = req?.mailbox?.id;
 
   const mailbox = await Prisma.mailbox.findFirst({
-    where: { id: mailboxId, deleted: false },
+    where: { id: mailboxId },
   });
 
   if (!mailbox) {
@@ -245,12 +245,12 @@ export const getAllMails = asyncHandler(async (req, res) => {
   }
 
   const received = await Prisma.receivedEmail.findMany({
-    where: { mailboxId },
+    where: { mailboxId, deleted: false },
     orderBy: { receivedAt: "desc" },
   });
 
   const sent = await Prisma.sentEmail.findMany({
-    where: { mailboxId },
+    where: { mailboxId, deleted: false },
     orderBy: { sentAt: "desc" },
   });
 
