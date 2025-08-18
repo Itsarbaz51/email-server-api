@@ -176,30 +176,20 @@ export const sendEmail = [
 
 // receivedEmail - returns received + sent for a mailbox (mailbox auth required)
 export const receivedEmail = asyncHandler(async (req, res) => {
-  const mailboxId = req.params.mailboxId;
-  const authenticatedMailboxId = req.mailbox?.id;
+  const mailboxId = req.mailbox?.id;
 
-  if (!authenticatedMailboxId) return ApiError.send(res, 401, "Auth required");
-  if (authenticatedMailboxId !== mailboxId && req.user?.role !== "ADMIN") {
-    // only owner or admin can view
-    return ApiError.send(res, 403, "Forbidden");
+  if (!mailboxId) {
+    return ApiError.send(res, 401, "Unauthraized mailbox user");
   }
 
   const received = await Prisma.receivedEmail.findMany({
     where: { mailboxId },
     orderBy: { receivedAt: "desc" },
-    include: { mailbox: { select: { emailAddress: true } } },
-  });
-
-  const sent = await Prisma.sentEmail.findMany({
-    where: { mailboxId },
-    orderBy: { sentAt: "desc" },
-    include: { mailbox: { select: { emailAddress: true } } },
   });
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "Messages fetched", { received, sent }));
+    .json(new ApiResponse(200, "Messages fetched", received));
 });
 
 // getSingleMessage - fetch one message either from 'sent' or 'received'
