@@ -18,7 +18,7 @@ export const addDomain = asyncHandler(async (req, res) => {
   // Check if domain already exists (case insensitive)
   const exists = await Prisma.domain.findFirst({
     where: {
-      name: name.toLowerCase()
+      name: name.toLowerCase(),
     },
   });
 
@@ -39,8 +39,7 @@ export const addDomain = asyncHandler(async (req, res) => {
       userId,
       sendgridDomainId: sendgridData.id.toString(),
       status: "PENDING",
-      dkimEnabled: false,
-      dkimTokens: JSON.stringify([]),
+      isVerified: false,
     },
   });
 
@@ -95,7 +94,9 @@ export const verifyDomain = asyncHandler(async (req, res) => {
   // Pass domain.name to verifyDnsRecord
   for (const record of domain.dnsRecords) {
     const isValid = await verifyDnsRecord(record, domain.name);
-    console.log(`Record ${record.recordName} (${record.recordType}): verified=${isValid}`);
+    console.log(
+      `Record ${record.recordName} (${record.recordType}): verified=${isValid}`
+    );
     if (!isValid) allValid = false;
 
     await Prisma.dNSRecord.update({
@@ -134,9 +135,10 @@ export const verifyDomain = asyncHandler(async (req, res) => {
   }
 
   const domainStatus = allValid ? "VERIFIED" : "PENDING";
+  const domainVerified = allValid ? true : false;
   await Prisma.domain.update({
     where: { id: domain.id },
-    data: { status: domainStatus },
+    data: { status: domainStatus, isVerified: domainVerified },
   });
 
   return res.status(200).json(
@@ -162,20 +164,17 @@ export const getDomains = asyncHandler(async (req, res) => {
     },
   });
 
-
-  if (domains) {
-    return ApiError.send(res, 404, "Domain already exists");
+  if (!domains || domains.length === 0) {
+    return ApiError.send(res, 404, "Domain records not found");
   }
 
-  return res.status(200).json(
-    new ApiResponse(200, "Domains fetched", domains)
-  );
+  return res.status(200).json(new ApiResponse(200, "Domains fetched", domains));
 });
 
 // delete domain
 export const deleteDomain = asyncHandler(async (req, res) => {
   console.log(req.params);
-  
+
   const name = req.params.domainName;
   const userId = req.user.id;
 
@@ -253,22 +252,32 @@ async function verifyDnsRecord(record, domainName) {
       const mxRecords = await dns.resolveMx(domainName);
       console.log(`MX Records for ${domainName}:`, mxRecords);
 
-      return mxRecords.some(mx => mx.exchange.toLowerCase() === record.recordValue.toLowerCase());
+      return mxRecords.some(
+        (mx) => mx.exchange.toLowerCase() === record.recordValue.toLowerCase()
+      );
     }
 
     // TXT, CNAME, A, etc.
-    const lookupName = record.recordName === "@" ? domainName : record.recordName;
+    const lookupName =
+      record.recordName === "@" ? domainName : record.recordName;
     const result = await dns.resolve(lookupName, record.recordType);
     console.log(`DNS Records for ${lookupName}:`, result);
 
     if (record.recordType === "TXT") {
-      const flattened = result.flat().map(r => (Array.isArray(r) ? r.join('') : r));
-      return flattened.some(txt => txt.includes(record.recordValue));
+      const flattened = result
+        .flat()
+        .map((r) => (Array.isArray(r) ? r.join("") : r));
+      return flattened.some((txt) => txt.includes(record.recordValue));
     }
 
-    return result.some(r => r.toLowerCase() === record.recordValue.toLowerCase());
+    return result.some(
+      (r) => r.toLowerCase() === record.recordValue.toLowerCase()
+    );
   } catch (error) {
-    console.error(`Error verifying DNS record for ${record.recordName}:`, error.message);
+    console.error(
+      `Error verifying DNS record for ${record.recordName}:`,
+      error.message
+    );
     return false;
   }
 }
