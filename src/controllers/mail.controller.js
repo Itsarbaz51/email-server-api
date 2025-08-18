@@ -556,7 +556,7 @@ export const getTrashMails = asyncHandler(async (req, res) => {
     return dateB - dateA;
   });
 
-  return res.json({
-    trash: trashMails,
-  });
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "All Tarsh mails success", trashMails));
 });
