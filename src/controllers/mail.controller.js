@@ -237,7 +237,7 @@ export const getAllMails = asyncHandler(async (req, res) => {
   const mailboxId = req?.mailbox?.id;
 
   const mailbox = await Prisma.mailbox.findFirst({
-    where: { id: mailboxId },
+    where: { id: mailboxId, deleted: false },
   });
 
   if (!mailbox) {
@@ -517,5 +517,46 @@ export const moveToArchive = asyncHandler(async (req, res) => {
       sent: archivedSent.count,
       received: archivedReceived.count,
     },
+  });
+});
+
+// getTrashMails (sent + received only trash)
+export const getTrashMails = asyncHandler(async (req, res) => {
+  const mailboxId = req.mailbox?.id;
+
+  if (!mailboxId) {
+    return ApiError.send(res, 401, "Mailbox not found");
+  }
+
+  const trashedSent = await Prisma.sentEmail.findMany({
+    where: {
+      mailboxId,
+      deleted: true,
+    },
+    orderBy: { sentAt: "desc" },
+  });
+
+  const trashedReceived = await Prisma.receivedEmail.findMany({
+    where: {
+      mailboxId,
+      deleted: true,
+    },
+    orderBy: { receivedAt: "desc" },
+  });
+
+  const trashMails = [
+    ...trashedSent.map((m) => ({ ...m, type: "SENT" })),
+    ...trashedReceived.map((m) => ({ ...m, type: "RECEIVED" })),
+  ];
+
+  // Sort by latest date
+  trashMails.sort((a, b) => {
+    const dateA = new Date(a.sentAt || a.receivedAt);
+    const dateB = new Date(b.sentAt || b.receivedAt);
+    return dateB - dateA;
+  });
+
+  return res.json({
+    trash: trashMails,
   });
 });

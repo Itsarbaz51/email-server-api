@@ -7,6 +7,7 @@ import {
   getBySingleMail,
   getSentMails,
   getSingleEmail,
+  getTrashMails,
   moveToArchive,
   moveToTrash,
   receivedEmail,
@@ -32,5 +33,7 @@ router.delete("/bulk-delete-mail", bulkMailDelete);
 
 router.post("/move-to-trash", moveToTrash);
 router.post("/move-to-archive", moveToArchive);
+
+router.get("/get-trash", getTrashMails);
 
 export default router;
