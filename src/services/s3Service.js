@@ -1,39 +1,24 @@
 // services/s3Service.js
-import AWS from "aws-sdk";
+import { S3Client, PutObjectCommand, HeadBucketCommand, CreateBucketCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { v4 as uuidv4 } from "uuid";
 import { ApiError } from "../utils/ApiError.js";
 
 console.log("AWS S3 Service Initialized");
 
-console.log(
-  "accessKeyId:", process.env.AWS_ACCESS_KEY_ID,
-  "secretAccessKey:", process.env.AWS_SECRET_ACCESS_KEY,
-  "region:", process.env.AWS_REGION,
-);
-
-// Configure AWS SDK
-const s3 = new AWS.S3({
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+// S3 client
+const s3 = new S3Client({
   region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
 });
 
-console.log("s3", s3);
-
-
-/**
- * Upload a file to S3
- * @param {string} bucket - The target S3 bucket
- * @param {string} key - The file path inside the bucket
- * @param {Buffer|String} body - File content
- * @param {string} contentType - MIME type
- * @returns {Promise<string>} - S3 object URL
- */
+// Upload to S3
 export async function uploadToS3({ bucket, key, body, contentType }) {
-  console.log("bucket", bucket, "key", key, "body", body, "contentType", contentType);
-
   if (!bucket || !key || !body) {
-    return ApiError.send(resizeBy, 401, "❌ Missing required parameters for S3 upload");
+    throw ApiError.badRequest("Missing required parameters for S3 upload");
   }
 
   const params = {
@@ -43,38 +28,37 @@ export async function uploadToS3({ bucket, key, body, contentType }) {
     ContentType: contentType || "application/octet-stream",
   };
 
-  console.log("Uploading to S3:", params);
-  
   try {
-    await s3.putObject(params).promise();
-    console.log(`✅ Uploaded to S3: ${bucket}/${key}`);
-    // return `https://${bucket}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
-    return key;
+    await s3.send(new PutObjectCommand(params));
+    console.log(`Uploaded to S3: ${bucket}/${key}`);
+    return key; // we return the key for DB storage
   } catch (error) {
-    console.error("❌ S3 Upload Error:", error);
+    console.error("S3 Upload Error:", error);
     throw error;
   }
 }
 
-/**
- * Generate a unique S3 key
- */
+// Generate Presigned URL
+export async function getPresignedUrl(bucket, key, expiresIn = 300) {
+  const command = new GetObjectCommand({ Bucket: bucket, Key: key });
+  return await getSignedUrl(s3, command, { expiresIn });
+}
+
+// Generate S3 key
 export function generateS3Key(prefix, filename) {
   const cleanFilename = filename.replace(/\s+/g, "_");
   return `${prefix}/${Date.now()}-${uuidv4()}-${cleanFilename}`;
 }
 
-/**
- * Ensure bucket exists
- */
+// Ensure bucket exists
 export async function ensureBucketExists(bucketName) {
   try {
-    await s3.headBucket({ Bucket: bucketName }).promise();
+    await s3.send(new HeadBucketCommand({ Bucket: bucketName }));
     console.log(`ℹ️ Bucket already exists: ${bucketName}`);
   } catch (err) {
-    if (err.statusCode === 404) {
-      await s3.createBucket({ Bucket: bucketName }).promise();
-      console.log(`✅ Created new bucket: ${bucketName}`);
+    if (err.$metadata?.httpStatusCode === 404) {
+      await s3.send(new CreateBucketCommand({ Bucket: bucketName }));
+      console.log(`Created new bucket: ${bucketName}`);
     } else {
       throw err;
     }

@@ -4,9 +4,8 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import Prisma from "../db/db.js";
 import { sendViaSendGrid } from "../services/sendgridService.js";
-import { uploadToS3 } from "../services/s3Service.js";
+import { uploadToS3, getPresignedUrl } from "../services/s3Service.js";
 import multer from "multer";
-
 const upload = multer({ storage: multer.memoryStorage() });
 
 // sendEmail - API for authenticated mailbox to send outbound email.
@@ -93,11 +92,11 @@ export const sendEmail = [
     const sendgridAttachments =
       req.files && req.files.length > 0
         ? req.files.map((file) => ({
-            filename: file.originalname,
-            content: file.buffer.toString("base64"),
-            type: file.mimetype,
-            disposition: "attachment",
-          }))
+          filename: file.originalname,
+          content: file.buffer.toString("base64"),
+          type: file.mimetype,
+          disposition: "attachment",
+        }))
         : [];
 
     // Try sending email
@@ -561,4 +560,59 @@ export const getTrashMails = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(new ApiResponse(200, "All Tarsh mails success", trashMails));
+});
+
+
+// get email body data on s3 
+export const getEmailBody = asyncHandler(async (req, res) => {
+  const mailboxId = req.mailbox?.id;
+  const { emailId, type } = req.params;
+
+  if (!mailboxId) {
+    return ApiError.send(res, 401, "Mailbox not found");
+  }
+
+  if (!emailId || !["SENT", "RECEIVED"].includes(type)) {
+    return ApiError.send(res, 400, "Invalid email type or ID");
+  }
+
+  let emailRecord;
+  if (type === "SENT") {
+    emailRecord = await Prisma.sentEmail.findFirst({
+      where: { id: emailId, mailboxId },
+    });
+  } else {
+    emailRecord = await Prisma.receivedEmail.findFirst({
+      where: { id: emailId, mailboxId },
+    });
+  }
+
+  if (!emailRecord) {
+    return ApiError.send(res, 404, "Email not found");
+  }
+
+  // `body` field me S3 key stored hai (jaise: emails/sent/admin@gmail.com/1755507642765-body.html)
+  const s3Key = emailRecord.body;
+  if (!s3Key) {
+    return ApiError.send(res, 404, "Email body not stored");
+  }
+
+  try {
+    const presignedUrl = await getPresignedUrl(
+      process.env.EMAIL_BODY_BUCKET,
+      s3Key,
+      300 // 5 minutes validity
+    );
+
+    return res.status(200).json(
+      new ApiResponse(200, "Email body URL generated", {
+        emailId,
+        type,
+        bodyUrl: presignedUrl,
+      })
+    );
+  } catch (err) {
+    console.error("Presigned URL generation failed:", err);
+    return ApiError.send(res, 500, "Failed to fetch email body");
+  }
 });

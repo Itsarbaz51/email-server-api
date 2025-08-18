@@ -113,7 +113,7 @@ export const incomingServer = new SMTPServer({
             await verifySubscription(mailbox.userId, "receiveMail");
 
             // Save body to S3 if bucket set, else fallback to inline
-            let bodyReference = "";
+            let bodyReference;
             try {
               const emailBody = parsed.html || parsed.text || "";
               if (EMAIL_BODY_BUCKET) {
@@ -124,13 +124,12 @@ export const incomingServer = new SMTPServer({
                   body: Buffer.from(emailBody, "utf-8"),
                   contentType: "text/html",
                 });
-                bodyReference = `https://${EMAIL_BODY_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${bodyKey}`;
               } else {
                 bodyReference = parsed.text || parsed.html || "";
               }
             } catch (s3Err) {
               console.warn("S3 body upload failed, storing inline body:", s3Err?.message || s3Err);
-              bodyReference = parsed.text || parsed.html || "";
+              return ApiError.send(res, 500, "Failed to store email body smtp", bodyReference);
             }
 
             // Create received email record
