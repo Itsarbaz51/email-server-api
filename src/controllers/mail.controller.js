@@ -232,7 +232,7 @@ export const getSingleEmail = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, "Message fetched", message));
 });
 
-// get all mails
+// get all mails (combined sent + received)
 export const getAllMails = asyncHandler(async (req, res) => {
   const mailboxId = req?.mailbox?.id;
 
@@ -244,22 +244,32 @@ export const getAllMails = asyncHandler(async (req, res) => {
     return ApiError.send(res, 404, "Mailbox not found or access denied");
   }
 
+  // Received mails
   const received = await Prisma.receivedEmail.findMany({
     where: { mailboxId, deleted: false },
-    orderBy: { receivedAt: "desc" },
   });
 
+  // Sent mails
   const sent = await Prisma.sentEmail.findMany({
     where: { mailboxId, deleted: false },
-    orderBy: { sentAt: "desc" },
   });
 
-  return res.status(200).json(
-    new ApiResponse(200, "All emails retrieved successfully", {
-      sent,
-      received,
-    })
-  );
+  // Combine both arrays
+  const allMails = [
+    ...received.map((mail) => ({
+      ...mail,
+      type: "received",
+      date: mail.receivedAt,
+    })),
+    ...sent.map((mail) => ({ ...mail, type: "sent", date: mail.sentAt })),
+  ];
+
+  // Sort by date descending (latest first)
+  allMails.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "All emails retrieved successfully", allMails));
 });
 
 // get sent mails
