@@ -706,21 +706,20 @@ export const getAllStarred = asyncHandler(async (req, res) => {
     return ApiError.send(res, 401, "Mailbox user unauthorized");
   }
 
-  const starredSent = await Prisma.sentEmail.findMany({
-    where: { mailboxId, starred: true },
-  });
+  const [starredSent, starredReceived] = await Promise.all([
+    Prisma.sentEmail.findMany({
+      where: { mailboxId, starred: true },
+    }),
+    Prisma.receivedEmail.findMany({
+      where: { mailboxId, starred: true },
+    }),
+  ]);
 
-  const starredReceived = await Prisma.receivedEmail.findMany({
-    where: { mailboxId, starred: true },
-  });
+  const data = [...starredSent, ...starredReceived];
 
   return res
     .status(200)
-    .json(
-      new ApiResponse(200, "success get all starred", {
-        data: [...starredSent, ...starredReceived],
-      })
-    );
+    .json(new ApiResponse(200, "success get all starred", data));
 });
 
 // get email body data on s3
