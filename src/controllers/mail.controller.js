@@ -714,10 +714,13 @@ export const getAllStarred = asyncHandler(async (req, res) => {
     where: { mailboxId, starred: true },
   });
 
-  return res.json({
-    message: "Starred mails fetched successfully",
-    data: [...starredSent, ...starredReceived],
-  });
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, "success get all starred", {
+        data: [...starredSent, ...starredReceived],
+      })
+    );
 });
 
 // get email body data on s3
