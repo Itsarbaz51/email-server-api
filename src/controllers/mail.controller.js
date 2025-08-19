@@ -182,7 +182,10 @@ export const receivedEmail = asyncHandler(async (req, res) => {
   }
 
   const received = await Prisma.receivedEmail.findMany({
-    where: { mailboxId },
+    where: { mailboxId, deleted: false, archive: false },
+    include: {
+      attachments: true,
+    },
     orderBy: { receivedAt: "desc" },
   });
 
@@ -274,6 +277,7 @@ export const getSentMails = asyncHandler(async (req, res) => {
     include: {
       attachments: true,
     },
+    orderBy: { receivedAt: "desc" },
   });
 
   if (!sendMails) return ApiError.send(res, 404, "sent mails not found");
