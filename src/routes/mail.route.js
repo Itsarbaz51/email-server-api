@@ -1,9 +1,11 @@
 // src/routes/mail.route.js
 import express from "express";
 import {
+  addStarred,
   bulkMailDelete,
   deleteMail,
   getAllMails,
+  getAllStarred,
   getArchiveMails,
   getBySingleMail,
   getEmailBody,
@@ -13,6 +15,7 @@ import {
   moveToArchive,
   moveToTrash,
   receivedEmail,
+  removeStarred,
   sendEmail,
 } from "../controllers/mail.controller.js";
 import { requireAuth } from "../middlewares/auth.middleware.js";
@@ -38,6 +41,11 @@ router.post("/move-to-archive", moveToArchive);
 router.get("/get-archive", getArchiveMails);
 
 router.get("/get-trash", getTrashMails);
+
+router.post("/add-starred/:mailId", addStarred);
+router.delete("/remove-starred/:mailId", removeStarred);
+router.get("/get-all-starred", getAllStarred);
+
 
 
 router.get("/body/:type/:emailId", getEmailBody);

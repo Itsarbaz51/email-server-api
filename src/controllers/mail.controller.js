@@ -610,6 +610,116 @@ export const getArchiveMails = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "All Archive mails success", archiveMails));
 });
 
+// add starred
+export const addStarred = asyncHandler(async (req, res) => {
+  const mailboxId = req.mailbox?.id;
+  const { mailId } = req.params;
+
+  if (!mailboxId) {
+    return ApiError.send(res, 401, "Mailbox user unauthorized");
+  }
+
+  let mail = null;
+
+  let sentMail = await Prisma.sentEmail.findUnique({
+    where: { id: mailId, mailboxId },
+  });
+
+  let receivedMail = await Prisma.receivedEmail.findUnique({
+    where: { id: mailId, mailboxId },
+  });
+
+  if (!sentMail && !receivedMail) {
+    return ApiError.send(res, 404, "Mail not found");
+  }
+
+  if (sentMail) {
+    mail = await Prisma.sentEmail.update({
+      where: { id: mailId },
+      data: { starred: true },
+    });
+  }
+
+  if (receivedMail) {
+    mail = await Prisma.receivedEmail.update({
+      where: { id: mailId },
+      data: { starred: true },
+    });
+  }
+
+  return res.json({
+    message: "Mail starred successfully",
+    data: mail,
+  });
+});
+
+// remove starred
+export const removeStarred = asyncHandler(async (req, res) => {
+  const mailboxId = req.mailbox?.id;
+  const { mailId } = req.params;
+
+  if (!mailboxId) {
+    return ApiError.send(res, 401, "Mailbox user unauthorized");
+  }
+
+  let mail = null;
+
+  // Check in sent mails
+  let sentMail = await Prisma.sentEmail.findUnique({
+    where: { id: mailId, mailboxId },
+  });
+
+  // Check in received mails
+  let receivedMail = await Prisma.receivedEmail.findUnique({
+    where: { id: mailId, mailboxId },
+  });
+
+  if (!sentMail && !receivedMail) {
+    return ApiError.send(res, 404, "Mail not found");
+  }
+
+  if (sentMail) {
+    mail = await Prisma.sentEmail.update({
+      where: { id: mailId },
+      data: { starred: false },
+    });
+  }
+
+  if (receivedMail) {
+    mail = await Prisma.receivedEmail.update({
+      where: { id: mailId },
+      data: { starred: false },
+    });
+  }
+
+  return res.json({
+    message: "Mail unstarred successfully",
+    data: mail,
+  });
+});
+
+// get all starred
+export const getAllStarred = asyncHandler(async (req, res) => {
+  const mailboxId = req.mailbox?.id;
+
+  if (!mailboxId) {
+    return ApiError.send(res, 401, "Mailbox user unauthorized");
+  }
+
+  const starredSent = await Prisma.sentEmail.findMany({
+    where: { mailboxId, starred: true },
+  });
+
+  const starredReceived = await Prisma.receivedEmail.findMany({
+    where: { mailboxId, starred: true },
+  });
+
+  return res.json({
+    message: "Starred mails fetched successfully",
+    data: [...starredSent, ...starredReceived],
+  });
+});
+
 // get email body data on s3
 export const getEmailBody = asyncHandler(async (req, res) => {
   const mailboxId = req.mailbox?.id;
