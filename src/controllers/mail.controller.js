@@ -277,7 +277,7 @@ export const getSentMails = asyncHandler(async (req, res) => {
     include: {
       attachments: true,
     },
-    orderBy: { receivedAt: "desc" },
+    orderBy: { sentAt: "desc" },
   });
 
   if (!sendMails) return ApiError.send(res, 404, "sent mails not found");
