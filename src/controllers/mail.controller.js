@@ -429,7 +429,6 @@ export const moveToTrash = asyncHandler(async (req, res) => {
     return ApiError.send(res, 401, "Mailbox not found");
   }
 
-  // decide single or bulk
   const ids =
     mailsId && Array.isArray(mailsId) && mailsId.length > 0
       ? mailsId
@@ -441,24 +440,21 @@ export const moveToTrash = asyncHandler(async (req, res) => {
     return ApiError.send(res, 400, "No mail ID(s) provided");
   }
 
-  // sent mails
+  // Sent mails
   const deletedSent = await Prisma.sentEmail.updateMany({
     where: {
       id: { in: ids },
       mailboxId,
-      deleted: false,
-      status: "DELETED",
+      deleted: false, 
     },
     data: { deleted: true },
   });
 
-  // received mails
   const deletedReceived = await Prisma.receivedEmail.updateMany({
     where: {
       id: { in: ids },
       mailboxId,
-      deleted: false,
-      // status: "DELETED",
+      deleted: false, 
     },
     data: { deleted: true },
   });
