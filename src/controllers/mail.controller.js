@@ -566,6 +566,46 @@ export const getTrashMails = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "All Tarsh mails success", trashMails));
 });
 
+export const getArchiveMails = asyncHandler(async (req, res) => {
+  const mailboxId = req.mailbox?.id;
+
+  if (!mailboxId) {
+    return ApiError.send(res, 401, "Mailbox not found");
+  }
+
+  const archivedSent = await Prisma.sentEmail.findMany({
+    where: {
+      mailboxId,
+      archive: true,
+    },
+    orderBy: { sentAt: "desc" },
+  });
+
+  const archivedReceived = await Prisma.receivedEmail.findMany({
+    where: {
+      mailboxId,
+      archive: true,
+    },
+    orderBy: { receivedAt: "desc" },
+  });
+
+  const archiveMails = [
+    ...archivedSent.map((m) => ({ ...m, type: "SENT" })),
+    ...archivedReceived.map((m) => ({ ...m, type: "RECEIVED" })),
+  ];
+
+  // Sort by latest date
+  archiveMails.sort((a, b) => {
+    const dateA = new Date(a.sentAt || a.receivedAt);
+    const dateB = new Date(b.sentAt || b.receivedAt);
+    return dateB - dateA;
+  });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "All Archive mails success", archiveMails));
+});
+
 // get email body data on s3
 export const getEmailBody = asyncHandler(async (req, res) => {
   const mailboxId = req.mailbox?.id;
