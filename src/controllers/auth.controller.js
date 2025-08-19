@@ -118,12 +118,15 @@ const login = asyncHandler(async (req, res) => {
 
   if (!user) {
     const exitsMailbox = await Prisma.mailbox.findFirst({
-      where: { emailAddress: emailOrPhone }
+      where: { emailAddress: emailOrPhone },
     });
 
     if (!exitsMailbox) return ApiError.send(res, 404, "Mailbox user not found");
 
-    const checkedPassword = await comparePassword(password, exitsMailbox.password);
+    const checkedPassword = await comparePassword(
+      password,
+      exitsMailbox.password
+    );
     if (!checkedPassword) return ApiError.send(res, 403, "Password Invalid");
 
     const updatedMailbox = await Prisma.mailbox.update({
@@ -146,7 +149,7 @@ const login = asyncHandler(async (req, res) => {
 
     const mailboxResponse = {
       ...mailboxSafe,
-      role: "USER"
+      role: "USER",
     };
 
     return res
@@ -267,64 +270,104 @@ const logout = asyncHandler(async (req, res) => {
 });
 
 // update profile
-const updateProfile = asyncHandler(async (req, res) => {
-  if (!req.user || !req.user.id)
+export const updateProfile = asyncHandler(async (req, res) => {
+  const userId = req.user?.id;
+  const mailboxId = req.mailbox?.id;
+
+  // Determine what is being updated
+  if (!userId && !mailboxId) {
     return ApiError.send(res, 401, "Not authenticated");
+  }
 
   const { name, email, phone, password } = req.body;
 
-  // Check: at least one field required
-  if (![name, email, phone, password].some((field) => field && field.trim && field.trim() !== "")) {
-    return ApiError.send(res, 400, "At least one field is required to update profile");
+  // Validation
+  if (
+    ![name, email, phone, password].some((f) => f && f.trim && f.trim() !== "")
+  ) {
+    return ApiError.send(res, 400, "At least one field is required");
   }
 
-  // Prepare update data dynamically
+  // Update object
   const updateData = {};
   if (name) updateData.name = name;
   if (email) updateData.email = email;
-  if (phone) updateData.phone = phone;
-  if (password) {
-    const hashedPassword = await bcrypt.hash(password, 10);
-    updateData.password = hashedPassword;
+
+  let updatedResult;
+
+  if (userId) {
+    // Include phone and password only for users
+    if (phone) updateData.phone = phone;
+    if (password) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      updateData.password = hashedPassword;
+    }
+
+    updatedResult = await Prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return res.status(200).json(
+      new ApiResponse(200, "User profile updated successfully", {
+        user: updatedResult,
+      })
+    );
   }
 
-  // Update in DB
-  const updatedUser = await Prisma.user.update({
-    where: { id: req.user.id },
-    data: updateData,
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phone: true,
-      role: true,
-      isActive: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
+  if (mailboxId) {
+    updatedResult = await Prisma.mailbox.update({
+      where: { id: mailboxId },
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, "Profile updated successfully", { user: updatedUser }));
+    return res.status(200).json(
+      new ApiResponse(200, "Mailbox updated successfully", {
+        mailbox: updatedResult,
+      })
+    );
+  }
 });
 
 // get current user
 const getCurrentUser = asyncHandler(async (req, res) => {
-  const userId = req?.user?.id
+  const userId = req?.user?.id;
   console.log(userId);
-  const mailboxId = req?.mailbox?.id
+  const mailboxId = req?.mailbox?.id;
   console.log("mailboxId", mailboxId);
-
 
   if (!userId && !mailboxId)
     return ApiError.send(res, 401, "Not authenticated");
 
   if (userId) {
-
     const user = await Prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, name: true, email: true, role: true, isActive: true, phone: true, createdAt: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        isActive: true,
+        phone: true,
+        createdAt: true,
+      },
     });
 
     if (!user) return ApiError.send(res, 404, "User not found");
@@ -333,29 +376,26 @@ const getCurrentUser = asyncHandler(async (req, res) => {
   }
 
   if (mailboxId) {
-
     const mailboxExits = await Prisma.mailbox.findUnique({
       where: { id: mailboxId },
     });
 
     console.log("mailboxExits", mailboxExits);
 
-
-    if (!mailboxExits) return ApiError.send(res, 404, "mailbox user not found")
+    if (!mailboxExits) return ApiError.send(res, 404, "mailbox user not found");
     const { password: _, ...mailboxSafe } = mailboxExits;
 
     const mailboxResponse = {
       ...mailboxSafe,
-      role: "USER"
+      role: "USER",
     };
 
     console.log("mailboxResponse", mailboxResponse);
 
-
-
-    return res.status(200).json(new ApiResponse(200, "OK", { user: mailboxResponse }));
+    return res
+      .status(200)
+      .json(new ApiResponse(200, "OK", { user: mailboxResponse }));
   }
-
 });
 
 // change pass
