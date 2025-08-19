@@ -92,11 +92,11 @@ export const sendEmail = [
     const sendgridAttachments =
       req.files && req.files.length > 0
         ? req.files.map((file) => ({
-          filename: file.originalname,
-          content: file.buffer.toString("base64"),
-          type: file.mimetype,
-          disposition: "attachment",
-        }))
+            filename: file.originalname,
+            content: file.buffer.toString("base64"),
+            type: file.mimetype,
+            disposition: "attachment",
+          }))
         : [];
 
     // Try sending email
@@ -490,34 +490,38 @@ export const moveToArchive = asyncHandler(async (req, res) => {
     return ApiError.send(res, 400, "No mail ID provided");
   }
 
-  const archivedSent = await Prisma.sentEmail.updateMany({
-    where: {
-      id: mailId,
-      mailboxId,
-      archive: false,
-    },
-    data: { archive: true },
+  let data = null;
+
+  // Try sent mail first
+  const sentMail = await Prisma.sentEmail.findFirst({
+    where: { id: mailId, mailboxId, archive: false },
   });
 
-  const archivedReceived = await Prisma.receivedEmail.updateMany({
-    where: {
-      id: mailId,
-      mailboxId,
-      archive: false,
-    },
-    data: { archive: true },
-  });
+  if (sentMail) {
+    data = await Prisma.sentEmail.update({
+      where: { id: mailId },
+      data: { archive: true },
+    });
+  } else {
+    const receivedMail = await Prisma.receivedEmail.findFirst({
+      where: { id: mailId, mailboxId, archive: false },
+    });
 
-  if (archivedSent.count === 0 && archivedReceived.count === 0) {
+    if (receivedMail) {
+      data = await Prisma.receivedEmail.update({
+        where: { id: mailId },
+        data: { archive: true },
+      });
+    }
+  }
+
+  if (!data) {
     return ApiError.send(res, 404, "No matching mail found to archive");
   }
 
   return res.json({
     message: "Mail archived successfully",
-    archived: {
-      sent: archivedSent.count,
-      received: archivedReceived.count,
-    },
+    data,
   });
 });
 
@@ -562,8 +566,7 @@ export const getTrashMails = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "All Tarsh mails success", trashMails));
 });
 
-
-// get email body data on s3 
+// get email body data on s3
 export const getEmailBody = asyncHandler(async (req, res) => {
   const mailboxId = req.mailbox?.id;
   const { emailId, type } = req.params;
