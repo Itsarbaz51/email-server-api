@@ -458,7 +458,7 @@ export const moveToTrash = asyncHandler(async (req, res) => {
       id: { in: ids },
       mailboxId,
       deleted: false,
-      status: "DELETED",
+      // status: "DELETED",
     },
     data: { deleted: true },
   });
