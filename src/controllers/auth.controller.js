@@ -269,37 +269,38 @@ const logout = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, "Logged out successfully"));
 });
 
-// update profile
+// update profile or mailbox
 const updateProfile = asyncHandler(async (req, res) => {
   const userId = req.user?.id;
   const mailboxId = req.mailbox?.id;
 
-  // Determine what is being updated
   if (!userId && !mailboxId) {
     return ApiError.send(res, 401, "Not authenticated");
   }
 
   const { name, email, phone, password } = req.body;
 
-  // Validation
+  // At least one field required
   if (
     ![name, email, phone, password].some((f) => f && f.trim && f.trim() !== "")
   ) {
-    return ApiError.send(res, 400, "At least one field is required");
+    return ApiError.send(
+      res,
+      400,
+      "At least one field is required to update profile"
+    );
   }
-
-  // Update object
-  const updateData = {};
-  if (name) updateData.name = name;
-  if (email) updateData.email = email;
 
   let updatedResult;
 
   if (userId) {
-    // Include phone and password only for users
+    // User/Admin update
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (email) updateData.email = email;
     if (phone) updateData.phone = phone;
     if (password) {
-      const hashedPassword = await bcrypt.hash(password, 10);
+      const hashedPassword = await hashPassword(password);
       updateData.password = hashedPassword;
     }
 
@@ -326,13 +327,18 @@ const updateProfile = asyncHandler(async (req, res) => {
   }
 
   if (mailboxId) {
+    // Mailbox update: only name & emailAddress
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (email) updateData.emailAddress = email;
+
     updatedResult = await Prisma.mailbox.update({
       where: { id: mailboxId },
       data: updateData,
       select: {
         id: true,
         name: true,
-        email: true,
+        emailAddress: true,
         createdAt: true,
         updatedAt: true,
       },
