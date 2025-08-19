@@ -270,7 +270,7 @@ const logout = asyncHandler(async (req, res) => {
 });
 
 // update profile
-export const updateProfile = asyncHandler(async (req, res) => {
+const updateProfile = asyncHandler(async (req, res) => {
   const userId = req.user?.id;
   const mailboxId = req.mailbox?.id;
 
