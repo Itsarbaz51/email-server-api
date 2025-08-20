@@ -735,10 +735,12 @@ export const getEmailBody = asyncHandler(async (req, res) => {
   if (type === "SENT") {
     emailRecord = await Prisma.sentEmail.findFirst({
       where: { id: emailId, mailboxId },
+      include: { attachments: true },
     });
   } else {
     emailRecord = await Prisma.receivedEmail.findFirst({
       where: { id: emailId, mailboxId },
+      include: { attachments: true },
     });
   }
 
@@ -746,7 +748,6 @@ export const getEmailBody = asyncHandler(async (req, res) => {
     return ApiError.send(res, 404, "Email not found");
   }
 
-  // `body` field me S3 key stored hai (jaise: emails/sent/admin@gmail.com/1755507642765-body.html)
   const s3Key = emailRecord.body;
   if (!s3Key) {
     return ApiError.send(res, 404, "Email body not stored");
@@ -758,9 +759,9 @@ export const getEmailBody = asyncHandler(async (req, res) => {
       s3Key,
       300
     );
-    
-    console.log(emailRecord)
-    
+
+    console.log(emailRecord);
+
     let attachments = [];
     if (emailRecord.attachments?.length) {
       attachments = await Promise.all(
@@ -775,13 +776,13 @@ export const getEmailBody = asyncHandler(async (req, res) => {
             name: att.name,
             type: att.type,
             size: att.size,
-            url, // ✅ ab # ki jagah actual URL
+            url,
           };
         })
       );
     }
     console.log(attachments);
-    
+
     return res.status(200).json(
       new ApiResponse(200, "Email body URL generated", {
         emailId,
