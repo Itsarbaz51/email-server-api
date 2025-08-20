@@ -1,167 +1,140 @@
 import Prisma from "../db/db.js";
 import { ApiError } from "../utils/ApiError.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
-export const verifySubscription = (action) => {
-  return async (req, res, next) => {
-    // Determine whether the request is from user or mailbox
-    const userId = req.user?.id;
-    const mailboxId = req.mailbox?.id;
+const planLimits = {
+  FREE: {
+    maxDomains: 1,
+    maxMailboxes: 1,
+    maxSentEmails: 50,
+    maxReceivedEmails: 500,
+    allowedStorageMB: 1024,
+  },
+  BASIC: {
+    maxDomains: 3,
+    maxMailboxes: 10,
+    maxSentEmails: 1000,
+    maxReceivedEmails: 10000,
+    allowedStorageMB: 10240,
+  },
+  PREMIUM: {
+    maxDomains: 10,
+    maxMailboxes: 50,
+    maxSentEmails: Number.MAX_SAFE_INTEGER,
+    maxReceivedEmails: Number.MAX_SAFE_INTEGER,
+    allowedStorageMB: 51200,
+  },
+};
 
-    if (!userId && !mailboxId) {
-      return ApiError.send(res, 401, "Unauthorized: No user or mailbox found");
+export const verifySubscription = (action) => asyncHandler(async (req, res, next) => {
+  const userId = req.user?.id;
+  const mailboxId = req.mailbox?.id;
+
+  if (!userId && !mailboxId) {
+    return ApiError.send(res, 401, "Unauthorized: No user or mailbox found");
+  }
+
+  let subscription;
+  let createdAt;
+
+  if (userId) {
+    const user = await Prisma.user.findUnique({
+      where: { id: userId },
+      include: { subscriptions: true },
+    });
+    if (!user) return ApiError.send(res, 404, "User not found");
+
+    createdAt = user.createdAt;
+    subscription = await Prisma.subscription.findFirst({
+      where: {
+        userId,
+        isActive: true,
+        paymentStatus: "SUCCESS",
+      },
+    });
+  } else {
+    const mailbox = await Prisma.mailbox.findUnique({
+      where: { id: mailboxId },
+      include: { user: { select: { createdAt: true, id: true } } },
+    });
+    if (!mailbox) return ApiError.send(res, 404, "Mailbox not found");
+
+    createdAt = mailbox.user?.createdAt ?? new Date();
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = Math.floor((today - createdAt) / (1000 * 60 * 60 * 24));
+
+  let limits;
+
+  if (!subscription) {
+    if (diffDays > 8) {
+      return ApiError.send(res, 403, "Free trial expired. Please subscribe to continue");
     }
-
-    // Fetch user or mailbox info accordingly
-    let subscription;
-    let createdAt;
-
-    if (userId) {
-      // Normal user flow
-      const user = await Prisma.user.findUnique({
-        where: { id: userId },
-        include: { subscriptions: true },
-      });
-
-      if (!user) return ApiError.send(res, 404, "User not found");
-
-      subscription = user.subscriptions?.find((sub) => sub.isActive);
-      createdAt = new Date(user.createdAt);
-    } else {
-      // Mailbox flow
-      const mailbox = await Prisma.mailbox.findUnique({
-        where: { id: mailboxId },
-        include: { user: { select: { createdAt: true } } },
-      });
-
-      if (!mailbox) return ApiError.send(res, 404, "Mailbox not found");
-
-      // Mailboxes usually don't have subscriptions, so get from related user if needed
-      subscription = null; // or customize if mailbox has subscription
-      createdAt = mailbox.user ? new Date(mailbox.user.createdAt) : new Date();
-    }
-
-    // Free trial logic: 8 days since creation
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const diffDays = Math.floor((today - createdAt) / (1000 * 60 * 60 * 24));
-
-    if (!subscription) {
-      if (diffDays <= 8) {
-        // Free trial limits
-        if (action === "createDomain") {
-          const count = await Prisma.domain.count({
-            where: { userId: userId || mailboxId },
-          });
-          if (count >= 1)
-            return ApiError.send(res, 403, "Free trial: Only 1 domain allowed");
-        }
-        if (action === "createMailbox") {
-          const count = await Prisma.mailbox.count({
-            where: { userId: userId || mailboxId },
-          });
-          if (count >= 1)
-            return ApiError.send(
-              res,
-              403,
-              "Free trial: Only 1 mailbox allowed"
-            );
-        }
-        if (action === "sendMail") {
-          const count = mailboxId
-            ? await Prisma.sentEmail.count({ where: { mailboxId } })
-            : await Prisma.sentEmail.count({ where: { userId } });
-          if (count >= 50)
-            return ApiError.send(
-              res,
-              403,
-              "Free trial: Email send limit exceeded (50)"
-            );
-        }
-        if (action === "receiveMail") {
-          const count = mailboxId
-            ? await Prisma.receivedEmail.count({ where: { mailboxId } })
-            : await Prisma.receivedEmail.count({ where: { userId } });
-          if (count >= 500)
-            return ApiError.send(
-              res,
-              403,
-              "Free trial: Email receive limit exceeded (500)"
-            );
-        }
-        return next();
-      }
-      return ApiError.send(
-        res,
-        403,
-        "Free trial expired. Please subscribe to continue"
-      );
-    }
-
-    // Subscription expiration check
+    limits = planLimits.FREE;
+  } else {
     const expiryDate = new Date(subscription.endDate);
     expiryDate.setHours(0, 0, 0, 0);
     if (today > expiryDate) {
-      return ApiError.send(
-        res,
-        403,
-        "Subscription expired. Please renew to continue"
-      );
+      return ApiError.send(res, 403, "Subscription expired. Please renew to continue");
     }
 
-    // Plan limits
-    const maxDomains = subscription.maxDomains;
-    const maxMailboxes = subscription.maxMailboxes;
-    const maxSentEmails = subscription.maxSentEmails;
-    const maxReceivedEmails = subscription.maxReceivedEmails;
+    limits = {
+      maxDomains: subscription.maxDomains,
+      maxMailboxes: subscription.maxMailboxes,
+      maxSentEmails: subscription.maxSentEmails,
+      maxReceivedEmails: subscription.maxReceivedEmails,
+    };
+  }
 
-    if (action === "createDomain") {
-      const count = await Prisma.domain.count({
-        where: { userId: userId || mailboxId },
+  // Action-specific checks
+  const entityId = userId || mailboxId;
+
+  switch (action) {
+    case "createDomain":
+      const domainCount = await Prisma.domain.count({
+        where: { userId: userId },
       });
-      if (count >= maxDomains)
-        return ApiError.send(
-          res,
-          403,
-          `Plan limit exceeded: Max ${maxDomains} domains allowed.`
-        );
-    }
+      if (domainCount >= limits.maxDomains) {
+        return ApiError.send(res, 403, `Plan limit exceeded: Max ${limits.maxDomains} domains allowed`);
+      }
+      break;
 
-    if (action === "createMailbox") {
-      const count = await Prisma.mailbox.count({
-        where: { userId: userId || mailboxId },
+    case "createMailbox":
+      const mailboxCount = await Prisma.mailbox.count({
+        where: { userId: userId },
       });
-      if (count >= maxMailboxes)
-        return ApiError.send(
-          res,
-          403,
-          `Plan limit exceeded: Max ${maxMailboxes} mailboxes allowed.`
-        );
-    }
+      if (mailboxCount >= limits.maxMailboxes) {
+        return ApiError.send(res, 403, `Plan limit exceeded: Max ${limits.maxMailboxes} mailboxes allowed`);
+      }
+      break;
 
-    if (action === "sendMail") {
-      const count = mailboxId
-        ? await Prisma.sentEmail.count({ where: { mailboxId } })
-        : await Prisma.sentEmail.count({ where: { userId } });
-      if (count >= maxSentEmails)
-        return ApiError.send(
-          res,
-          403,
-          `Plan limit exceeded: Max ${maxSentEmails} sent emails allowed.`
-        );
-    }
+    case "sendMail":
+      const sentCount = await Prisma.sentEmail.count({
+        where: mailboxId ? { mailboxId } : { userId },
+      });
+      if (sentCount >= limits.maxSentEmails) {
+        return ApiError.send(res, 403, `Plan limit exceeded: Max ${limits.maxSentEmails} sent emails allowed`);
+      }
+      break;
 
-    if (action === "receiveMail") {
-      const count = mailboxId
-        ? await Prisma.receivedEmail.count({ where: { mailboxId } })
-        : await Prisma.receivedEmail.count({ where: { userId } });
-      if (count >= maxReceivedEmails)
-        return ApiError.send(
-          res,
-          403,
-          `Plan limit exceeded: Max ${maxReceivedEmails} received emails allowed.`
-        );
-    }
+    case "receiveMail":
+      const receivedCount = await Prisma.receivedEmail.count({
+        where: mailboxId ? { mailboxId } : { userId },
+      });
+      if (receivedCount >= limits.maxReceivedEmails) {
+        return ApiError.send(res, 403, `Plan limit exceeded: Max ${limits.maxReceivedEmails} received emails allowed`);
+      }
+      break;
 
-    return next();
-  };
-};
+    case "verifyDomain":
+      // Assuming domain verification is allowed if domain already exists.
+      break;
+
+    default:
+      break;
+  }
+
+  next();
+});

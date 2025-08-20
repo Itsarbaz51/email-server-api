@@ -5,15 +5,11 @@ import { verifySubscription } from "../middlewares/subscription.middleware.js";
 
 const router = Router();
 
-// auth required
-// router.use(requireAuth);
+router.post("/add-domain", requireAuth, verifySubscription("createDomain"), addDomain);
+router.get("/get-domains", requireAuth, getDomains);
 
-// create/add domain 
-router.post("/add-domain",requireAuth, verifySubscription("createDomain"), addDomain);
-router.get("/get-domains",requireAuth,  getDomains);
+router.get("/verify-domain/:domainName", requireAuth, verifySubscription("verifyDomain"), verifyDomain);
+router.delete("/delete-domain/:domainName", requireAuth, deleteDomain);
 
-// verify domain with domain id
-router.get("/verify-domian/:domainName", verifyDomain);
-router.delete("/delete-domian/:domainName", requireAuth, deleteDomain);
 
 export default router;
