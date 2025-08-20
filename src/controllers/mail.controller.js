@@ -758,7 +758,9 @@ export const getEmailBody = asyncHandler(async (req, res) => {
       s3Key,
       300
     );
-
+    
+    console.log(emailRecord)
+    
     let attachments = [];
     if (emailRecord.attachments?.length) {
       attachments = await Promise.all(
@@ -778,7 +780,8 @@ export const getEmailBody = asyncHandler(async (req, res) => {
         })
       );
     }
-
+    console.log(attachments);
+    
     return res.status(200).json(
       new ApiResponse(200, "Email body URL generated", {
         emailId,
