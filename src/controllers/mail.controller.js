@@ -768,7 +768,7 @@ export const getEmailBody = asyncHandler(async (req, res) => {
         emailRecord.attachments.map(async (att) => {
           const url = await getPresignedUrl(
             process.env.ATTACHMENTS_BUCKET,
-            att.key,
+             att.s3Key,
             300
           );
           return {
