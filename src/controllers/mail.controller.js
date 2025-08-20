@@ -445,7 +445,7 @@ export const moveToTrash = asyncHandler(async (req, res) => {
     where: {
       id: { in: ids },
       mailboxId,
-      deleted: false, 
+      deleted: false,
     },
     data: { deleted: true },
   });
@@ -454,7 +454,7 @@ export const moveToTrash = asyncHandler(async (req, res) => {
     where: {
       id: { in: ids },
       mailboxId,
-      deleted: false, 
+      deleted: false,
     },
     data: { deleted: true },
   });
@@ -746,24 +746,46 @@ export const getEmailBody = asyncHandler(async (req, res) => {
     return ApiError.send(res, 404, "Email not found");
   }
 
-  // `body` field me S3 key stored hai (jaise: emails/sent/admin@gmail.com/1755507642765-body.html)
+  // body
   const s3Key = emailRecord.body;
   if (!s3Key) {
     return ApiError.send(res, 404, "Email body not stored");
   }
 
   try {
-    const presignedUrl = await getPresignedUrl(
+    const bodyUrl = await getPresignedUrl(
       process.env.EMAIL_BODY_BUCKET,
       s3Key,
-      300 // 5 minutes validity
+      300
     );
 
+    // 🔥 handle attachments
+    let attachments = [];
+    if (emailRecord.attachments?.length) {
+      attachments = await Promise.all(
+        emailRecord.attachments.map(async (att) => {
+          const url = await getPresignedUrl(
+            process.env.EMAIL_BODY_BUCKET, // ya alag bucket agar ho
+            att.key,
+            300
+          );
+          return {
+            id: att.id,
+            name: att.name,
+            type: att.type,
+            size: att.size,
+            url, // ✅ ab # ki jagah actual URL
+          };
+        })
+      );
+    }
+
     return res.status(200).json(
-      new ApiResponse(200, "Email body URL generated", {
+      new ApiResponse(200, "Email body + attachments generated", {
         emailId,
         type,
-        bodyUrl: presignedUrl,
+        bodyUrl,
+        attachments,
       })
     );
   } catch (err) {
