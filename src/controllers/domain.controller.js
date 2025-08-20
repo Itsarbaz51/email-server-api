@@ -182,7 +182,7 @@ export const verifyDomain = asyncHandler(async (req, res) => {
     data: {
       status: domainStatus,
       isVerified: domainVerified,
-      lastVerificationAttempt: new Date()
+      // lastVerificationAttempt: new Date()
     },
   });
 
