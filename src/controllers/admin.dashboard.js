@@ -66,7 +66,7 @@ export const getDashboardData = asyncHandler(async (req, res) => {
         totalMailboxes,
         totalReceivedEmails,
         totalSentEmails,
-        storageUsed: storageUsed._sum,
+        storageUsed: storageUsed._sum.fileSize,
         recentDomains: recentDomains.map((d) => ({
           id: d.id,
           name: d.name,
