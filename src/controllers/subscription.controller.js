@@ -4,6 +4,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import Prisma from "../db/db.js";
 import Razorpay from "razorpay";
 import axios from "axios";
+import { generateInvoiceId } from "../utils/lib.js";
 
 const MAX_INT = Number.MAX_SAFE_INTEGER;
 
@@ -12,6 +13,7 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_SECRET,
 });
 
+// ======================= PLAN CONFIG ======================
 const planPricesUSD = {
   BASIC: 5,
   PREMIUM: 15,
@@ -72,6 +74,7 @@ async function getUsdToInrRate() {
   }
 }
 
+// ======================= PAYMENT VERIFY ======================
 export const verifyPayment = asyncHandler(async (req, res) => {
   const { razorpayPaymentId, razorpayOrderId, expectedAmount } = req.body;
 
@@ -97,6 +100,7 @@ export const verifyPayment = asyncHandler(async (req, res) => {
   );
 });
 
+// ======================= CREATE/RENEW SUBSCRIPTION ======================
 export const createOrRenewSubscription = asyncHandler(async (req, res) => {
   let {
     plan,
@@ -124,7 +128,7 @@ export const createOrRenewSubscription = asyncHandler(async (req, res) => {
   if (!validCycles.includes(billingCycle))
     return ApiError.send(res, 400, "Invalid billing cycle");
 
-  // For paid plans: validate Razorpay payment again
+  // ---- Paid plan verification
   if (plan !== "FREE") {
     if (!razorpayOrderId || !razorpayPaymentId)
       return ApiError.send(res, 400, "Payment details missing");
@@ -149,7 +153,7 @@ export const createOrRenewSubscription = asyncHandler(async (req, res) => {
     paymentId = payment.id;
     razorpayStatus = payment.status;
   } else {
-    // Free plan trial setup
+    // Free plan
     paymentStatus = "FREE";
     paymentProvider = "FREE";
     paymentId = null;
@@ -193,11 +197,31 @@ export const createOrRenewSubscription = asyncHandler(async (req, res) => {
     ? await Prisma.subscription.update({ where: { id: existingSub.id }, data })
     : await Prisma.subscription.create({ data });
 
+  // create invoice
+  await Prisma.invoice.create({
+    data: {
+      invoiceId: generateInvoiceId(),
+      subscriptionId: subscription.id,
+      amount:
+        plan === "FREE"
+          ? 0
+          : billingCycle === "MONTHLY"
+            ? planPricesUSD[plan] * 83
+            : planPricesUSD[plan] * 83 * 12,
+      status: paymentStatus === "SUCCESS" ? "PAID" : "PENDING",
+    },
+  });
+
   return res.status(200).json(
-    new ApiResponse(200, existingSub ? "Subscription renewed" : "Subscription created", subscription)
+    new ApiResponse(
+      200,
+      existingSub ? "Subscription renewed" : "Subscription created",
+      subscription
+    )
   );
 });
 
+// ======================= CREATE RAZORPAY ORDER ======================
 export const createRazorpayOrder = asyncHandler(async (req, res) => {
   const { plan, billingCycle, receiptId } = req.body;
   const userId = req.user.id;
@@ -223,20 +247,19 @@ export const createRazorpayOrder = asyncHandler(async (req, res) => {
     priceUSD *= 12;
   }
 
-  const amount = Math.round(priceUSD * usdToInr * 100); // Razorpay expects amount in paise
+  const amount = Math.round(priceUSD * usdToInr * 100);
 
-  // Use the provided receiptId or generate a short one
   const receipt = receiptId || `ord_${plan.slice(0, 3)}_${Date.now()}`.slice(0, 40);
 
   const options = {
     amount,
     currency: "INR",
-    receipt, // Use the shorter receipt ID
+    receipt,
     notes: {
       userId: userId.toString(),
       plan: plan.toUpperCase(),
-      billingCycle: billingCycle.toUpperCase()
-    }
+      billingCycle: billingCycle.toUpperCase(),
+    },
   };
 
   try {
@@ -249,6 +272,8 @@ export const createRazorpayOrder = asyncHandler(async (req, res) => {
     return ApiError.send(res, 500, "Failed to create order");
   }
 });
+
+// ======================= GET SUBSCRIPTION ======================
 
 export const getCurrentSubscription = asyncHandler(async (req, res) => {
   const userId = req.user?.id;
@@ -265,22 +290,6 @@ export const getCurrentSubscription = asyncHandler(async (req, res) => {
   return res.status(200).json(
     new ApiResponse(200, "Subscription retrieved", subscription)
   );
-});
-
-export const getMySubscription = asyncHandler(async (req, res) => {
-  const userId = req.user?.id;
-  if (!userId) return ApiError.send(res, 401, "Authentication required");
-
-  const subscription = await Prisma.subscription.findFirst({
-    where: { userId, isActive: true },
-  });
-
-  if (!subscription)
-    return ApiError.send(res, 404, "No active subscription found");
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, "Subscription retrieved", subscription));
 });
 
 export const cancelSubscription = asyncHandler(async (req, res) => {
@@ -302,4 +311,44 @@ export const cancelSubscription = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(new ApiResponse(200, "Subscription cancelled successfully"));
+});
+
+// ======================= INVOICE HELPERS ======================
+export async function updateInvoiceStatus(invoiceId, status) {
+  return await Prisma.invoice.update({
+    where: { id: invoiceId },
+    data: { status },
+  });
+}
+
+// ======================= RAZORPAY WEBHOOK ======================
+export const WebhookRazorpay = asyncHandler(async (req, res) => {
+  const event = req.body;
+
+  try {
+    if (event.event === "payment.captured") {
+      const paymentId = event.payload.payment.entity.id;
+
+      const subscription = await Prisma.subscription.findFirst({
+        where: { paymentId },
+      });
+
+      if (subscription) {
+        const invoice = await Prisma.invoice.findFirst({
+          where: { subscriptionId: subscription.id },
+        });
+
+        if (invoice) {
+          await updateInvoiceStatus(invoice.id, "PAID");
+        }
+      }
+
+      return res.json({ success: true });
+    }
+
+    res.json({ success: false });
+  } catch (err) {
+    console.error("Webhook error:", err);
+    res.status(500).json({ error: "Webhook handling failed" });
+  }
 });

@@ -47,6 +47,13 @@ enum PaymentStatus {
   CANCELLED
 }
 
+enum InvoiceStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+
 model User {
   id                 String   @id @default(cuid())
   email              String   @unique
@@ -72,8 +79,8 @@ model User {
 
 model Subscription {
   id                String           @id @default(cuid())
-  plan              String // "FREE", "BASIC", "PREMIUM"
-  billingCycle      String // "MONTHLY" or "YEARLY"
+  plan              String
+  billingCycle      String 
   maxMailboxes      Int              @default(1)
   maxDomains        Int              @default(1)
   maxSentEmails     Int              @default(100) // New field: max sent emails allowed
@@ -91,6 +98,18 @@ model Subscription {
   isActive          Boolean          @default(true)
   userId            String
   user              User             @relation(fields: [userId], references: [id])
+}
+
+
+model Invoice {
+  id              String         @id @default(cuid())
+  invoiceId       String         @unique
+  subscriptionId  String
+  amount          Float
+  status          InvoiceStatus  @default(PENDING)
+  createdAt       DateTime       @default(now())
+
+  subscription    Subscription   @relation(fields: [subscriptionId], references: [id])
 }
 
 model Domain {

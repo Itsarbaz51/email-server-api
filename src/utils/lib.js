@@ -23,3 +23,9 @@ export const generateRefreshToken = (id, email, role) => {
     expiresIn: process.env.REFRESH_TOKEN_EXPIRY,
   });
 };
+
+export function generateInvoiceId() {
+  const year = new Date().getFullYear()
+  const random = Math.floor(1000 + Math.random() * 9000) // 4 digit
+  return `INV-${year}-${random}`
+}
