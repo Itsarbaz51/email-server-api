@@ -72,87 +72,102 @@ async function getUsdToInrRate() {
   }
 }
 
+
+
+export const verifyPayment = asyncHandler(async (req, res) => {
+  const { razorpayPaymentId, razorpayOrderId, expectedAmount } = req.body;
+
+  if (!razorpayPaymentId || !razorpayOrderId || !expectedAmount)
+    return ApiError.send(res, 400, "Missing payment verification fields");
+
+  const payment = await razorpay.payments.fetch(razorpayPaymentId);
+
+  if (
+    !payment ||
+    payment.status !== "captured" ||
+    payment.order_id !== razorpayOrderId ||
+    payment.amount !== expectedAmount
+  ) {
+    return ApiError.send(res, 400, "Payment verification failed");
+  }
+
+  return res.status(200).json(
+    new ApiResponse(200, "Payment verified", {
+      paymentId: payment.id,
+      status: payment.status,
+    })
+  );
+});
+
+// 2. CREATE OR RENEW SUBSCRIPTION
 export const createOrRenewSubscription = asyncHandler(async (req, res) => {
   let {
     plan,
     billingCycle,
     razorpayOrderId,
     razorpayPaymentId,
-    razorpayStatus,
     paymentStatus,
     paymentId,
     paymentProvider,
+    razorpayStatus,
   } = req.body;
 
   const userId = req.user.id;
 
-  if (!plan || !billingCycle) {
-    return ApiError.send(res, 400, "Plan and billing cycle are required");
-  }
+  if (!plan || !billingCycle)
+    return ApiError.send(res, 400, "Plan and billing cycle required");
+
   plan = plan.toUpperCase();
   billingCycle = billingCycle.toUpperCase();
 
   const validPlans = Object.keys(planLimits);
   const validCycles = ["MONTHLY", "YEARLY"];
-
   if (!validPlans.includes(plan))
     return ApiError.send(res, 400, "Invalid plan");
   if (!validCycles.includes(billingCycle))
     return ApiError.send(res, 400, "Invalid billing cycle");
 
-  // Paid plan verification
+  // For paid plans: validate Razorpay payment again
   if (plan !== "FREE") {
-    if (!razorpayOrderId || !razorpayPaymentId) {
-      return ApiError.send(
-        res,
-        400,
-        "Payment details are required for paid plans"
-      );
-    }
+    if (!razorpayOrderId || !razorpayPaymentId)
+      return ApiError.send(res, 400, "Payment details missing");
 
     const usdToInr = await getUsdToInrRate();
-    let planPriceUSD = planPricesUSD[plan];
-    if (billingCycle === "YEARLY") planPriceUSD *= 12;
-
-    const expectedAmountInPaise = Math.round(planPriceUSD * usdToInr * 100);
+    let priceUSD = planPricesUSD[plan];
+    if (billingCycle === "YEARLY") priceUSD *= 12;
+    const expectedAmount = Math.round(priceUSD * usdToInr * 100);
 
     const payment = await razorpay.payments.fetch(razorpayPaymentId);
-    if (!payment) return ApiError.send(res, 400, "Payment not found");
-    if (payment.status !== "captured")
-      return ApiError.send(res, 400, "Payment not captured");
-    if (payment.order_id !== razorpayOrderId)
-      return ApiError.send(res, 400, "Order ID mismatch");
-    if (payment.amount !== expectedAmountInPaise)
-      return ApiError.send(
-        res,
-        400,
-        `Payment amount mismatch. Expected ${expectedAmountInPaise}, got ${payment.amount}`
-      );
+    if (
+      !payment ||
+      payment.status !== "captured" ||
+      payment.order_id !== razorpayOrderId ||
+      payment.amount !== expectedAmount
+    ) {
+      return ApiError.send(res, 400, "Payment verification failed");
+    }
 
     paymentStatus = "SUCCESS";
     paymentProvider = "RAZORPAY";
     paymentId = payment.id;
     razorpayStatus = payment.status;
-  }
-
-  let startDate = new Date();
-  let endDate = new Date();
-  if (plan === "FREE") {
-    endDate.setDate(startDate.getDate() + 8);
+  } else {
+    // Free plan trial setup
     paymentStatus = "FREE";
     paymentProvider = "FREE";
     paymentId = null;
     razorpayOrderId = null;
     razorpayPaymentId = null;
     razorpayStatus = null;
-  } else if (billingCycle === "MONTHLY") {
-    endDate.setMonth(startDate.getMonth() + 1);
-  } else if (billingCycle === "YEARLY") {
-    endDate.setFullYear(startDate.getFullYear() + 1);
   }
 
-  const baseLimits = planLimits[plan];
-  const adjustedLimits = adjustLimitsForBillingCycle(baseLimits, billingCycle);
+  const startDate = new Date();
+  const endDate = new Date();
+  if (plan === "FREE") endDate.setDate(startDate.getDate() + 8);
+  else if (billingCycle === "MONTHLY") endDate.setMonth(startDate.getMonth() + 1);
+  else if (billingCycle === "YEARLY") endDate.setFullYear(startDate.getFullYear() + 1);
+
+  const limits = adjustLimitsForBillingCycle(planLimits[plan], billingCycle);
 
   const existingSub = await Prisma.subscription.findFirst({
     where: { userId, isActive: true },
@@ -160,39 +175,30 @@ export const createOrRenewSubscription = asyncHandler(async (req, res) => {
 
   const storageUsedMB = existingSub?.storageUsedMB || 0;
 
-  const subscriptionData = {
+  const data = {
+    userId,
     plan,
     billingCycle,
-    ...adjustedLimits,
+    ...limits,
     storageUsedMB,
-    paymentProvider,
+    startDate,
+    endDate,
+    isActive: true,
     paymentStatus,
+    paymentProvider,
     paymentId,
     razorpayOrderId,
     razorpayPaymentId,
     razorpayStatus,
-    startDate,
-    endDate,
-    isActive: true,
-    userId,
   };
 
-  if (existingSub) {
-    const updatedSub = await Prisma.subscription.update({
-      where: { id: existingSub.id },
-      data: subscriptionData,
-    });
-    return res.json(
-      new ApiResponse(200, "Subscription renewed successfully", updatedSub)
-    );
-  }
+  const subscription = existingSub
+    ? await Prisma.subscription.update({ where: { id: existingSub.id }, data })
+    : await Prisma.subscription.create({ data });
 
-  const newSub = await Prisma.subscription.create({
-    data: subscriptionData,
-  });
-  res
-    .status(201)
-    .json(new ApiResponse(201, "Subscription created successfully", newSub));
+  return res.status(200).json(
+    new ApiResponse(200, existingSub ? "Subscription renewed" : "Subscription created", subscription)
+  );
 });
 
 export const getMySubscription = asyncHandler(async (req, res) => {
