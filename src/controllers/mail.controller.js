@@ -754,7 +754,7 @@ export const getEmailBody = asyncHandler(async (req, res) => {
 
   try {
     const bodyUrl = await getPresignedUrl(
-      process.env.EMAIL_BODY_BUCKET,
+      process.env.ATTACHMENTS_BUCKET,
       s3Key,
       300
     );
@@ -765,7 +765,7 @@ export const getEmailBody = asyncHandler(async (req, res) => {
       attachments = await Promise.all(
         emailRecord.attachments.map(async (att) => {
           const url = await getPresignedUrl(
-            process.env.EMAIL_BODY_BUCKET, // ya alag bucket agar ho
+            process.env.ATTACHMENTS_BUCKET, // ya alag bucket agar ho
             att.key,
             300
           );
@@ -774,7 +774,7 @@ export const getEmailBody = asyncHandler(async (req, res) => {
             name: att.name,
             type: att.type,
             size: att.size,
-            url, // ✅ ab # ki jagah actual URL
+            url,
           };
         })
       );
