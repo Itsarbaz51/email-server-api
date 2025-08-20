@@ -445,7 +445,7 @@ export const moveToTrash = asyncHandler(async (req, res) => {
     where: {
       id: { in: ids },
       mailboxId,
-      deleted: false, 
+      deleted: false,
     },
     data: { deleted: true },
   });
@@ -454,7 +454,7 @@ export const moveToTrash = asyncHandler(async (req, res) => {
     where: {
       id: { in: ids },
       mailboxId,
-      deleted: false, 
+      deleted: false,
     },
     data: { deleted: true },
   });
@@ -756,14 +756,35 @@ export const getEmailBody = asyncHandler(async (req, res) => {
     const presignedUrl = await getPresignedUrl(
       process.env.EMAIL_BODY_BUCKET,
       s3Key,
-      300 // 5 minutes validity
+      300
     );
+
+    let attachments = [];
+    if (emailRecord.attachments?.length) {
+      attachments = await Promise.all(
+        emailRecord.attachments.map(async (att) => {
+          const url = await getPresignedUrl(
+            process.env.ATTACHMENTS_BUCKET,
+            att.key,
+            300
+          );
+          return {
+            id: att.id,
+            name: att.name,
+            type: att.type,
+            size: att.size,
+            url, // ✅ ab # ki jagah actual URL
+          };
+        })
+      );
+    }
 
     return res.status(200).json(
       new ApiResponse(200, "Email body URL generated", {
         emailId,
         type,
         bodyUrl: presignedUrl,
+        attachments,
       })
     );
   } catch (err) {
