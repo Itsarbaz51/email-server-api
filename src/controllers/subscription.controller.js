@@ -199,7 +199,7 @@ export const createOrRenewSubscription = asyncHandler(async (req, res) => {
 });
 
 export const createRazorpayOrder = asyncHandler(async (req, res) => {
-  const { plan, billingCycle } = req.body;
+  const { plan, billingCycle, receiptId } = req.body;
   const userId = req.user.id;
 
   if (!plan || !billingCycle) {
@@ -225,19 +225,19 @@ export const createRazorpayOrder = asyncHandler(async (req, res) => {
 
   const amount = Math.round(priceUSD * usdToInr * 100); // Razorpay expects amount in paise
 
+  // Use the provided receiptId or generate a short one
+  const receipt = receiptId || `ord_${plan.slice(0, 3)}_${Date.now()}`.slice(0, 40);
+
   const options = {
     amount,
     currency: "INR",
-    receipt: `order_rcptid_${userId}_${Date.now()}`,
+    receipt, // Use the shorter receipt ID
     notes: {
       userId: userId.toString(),
       plan: plan.toUpperCase(),
       billingCycle: billingCycle.toUpperCase()
     }
   };
-
-  console.log("options", options);
-
 
   try {
     const order = await razorpay.orders.create(options);
