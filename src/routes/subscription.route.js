@@ -1,19 +1,19 @@
 import express from "express";
-import { requireAuth } from "../middlewares/auth.middleware.js";
 import {
   verifyPayment,
   createOrRenewSubscription,
-  getMySubscription,
+  getCurrentSubscription,
   cancelSubscription,
+  createRazorpayOrder // Add this
 } from "../controllers/subscription.controller.js";
+import { requireAuth } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-router.use(requireAuth);
-
-router.post("/verify-payment", verifyPayment);
-router.post("/create-or-renew", createOrRenewSubscription);
-router.get("/current", getMySubscription);
-router.delete("/cancel", cancelSubscription);
+router.route("/create-order").post(requireAuth, createRazorpayOrder);
+router.route("/create-or-renew").post(requireAuth, createOrRenewSubscription);
+router.route("/verify-payment").post(requireAuth, verifyPayment);
+router.route("/current").get(requireAuth, getCurrentSubscription);
+router.route("/cancel").delete(requireAuth, cancelSubscription);
 
 export default router;

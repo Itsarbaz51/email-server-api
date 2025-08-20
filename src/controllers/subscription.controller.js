@@ -72,8 +72,6 @@ async function getUsdToInrRate() {
   }
 }
 
-
-
 export const verifyPayment = asyncHandler(async (req, res) => {
   const { razorpayPaymentId, razorpayOrderId, expectedAmount } = req.body;
 
@@ -99,7 +97,6 @@ export const verifyPayment = asyncHandler(async (req, res) => {
   );
 });
 
-// 2. CREATE OR RENEW SUBSCRIPTION
 export const createOrRenewSubscription = asyncHandler(async (req, res) => {
   let {
     plan,
@@ -198,6 +195,72 @@ export const createOrRenewSubscription = asyncHandler(async (req, res) => {
 
   return res.status(200).json(
     new ApiResponse(200, existingSub ? "Subscription renewed" : "Subscription created", subscription)
+  );
+});
+
+export const createRazorpayOrder = asyncHandler(async (req, res) => {
+  const { plan, billingCycle } = req.body;
+  const userId = req.user.id;
+
+  if (!plan || !billingCycle) {
+    return ApiError.send(res, 400, "Plan and billing cycle required");
+  }
+
+  const validPlans = ["BASIC", "PREMIUM"];
+  const validCycles = ["MONTHLY", "YEARLY"];
+
+  if (!validPlans.includes(plan.toUpperCase())) {
+    return ApiError.send(res, 400, "Invalid plan");
+  }
+  if (!validCycles.includes(billingCycle.toUpperCase())) {
+    return ApiError.send(res, 400, "Invalid billing cycle");
+  }
+
+  const usdToInr = await getUsdToInrRate();
+  let priceUSD = planPricesUSD[plan.toUpperCase()];
+
+  if (billingCycle.toUpperCase() === "YEARLY") {
+    priceUSD *= 12;
+  }
+
+  const amount = Math.round(priceUSD * usdToInr * 100); // Razorpay expects amount in paise
+
+  const options = {
+    amount,
+    currency: "INR",
+    receipt: `order_rcptid_${userId}_${Date.now()}`,
+    notes: {
+      userId: userId.toString(),
+      plan: plan.toUpperCase(),
+      billingCycle: billingCycle.toUpperCase()
+    }
+  };
+
+  try {
+    const order = await razorpay.orders.create(options);
+    return res.status(200).json(
+      new ApiResponse(200, "Order created successfully", order)
+    );
+  } catch (error) {
+    console.error("Razorpay order creation error:", error);
+    return ApiError.send(res, 500, "Failed to create order");
+  }
+});
+
+export const getCurrentSubscription = asyncHandler(async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return ApiError.send(res, 401, "Authentication required");
+
+  const subscription = await Prisma.subscription.findFirst({
+    where: { userId, isActive: true },
+  });
+
+  if (!subscription) {
+    return ApiError.send(res, 404, "No active subscription found");
+  }
+
+  return res.status(200).json(
+    new ApiResponse(200, "Subscription retrieved", subscription)
   );
 });
 
