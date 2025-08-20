@@ -1,6 +1,5 @@
 // src/controllers/payment.controller.js
 import Razorpay from "razorpay";
-import { ApiResponse } from "../utils/ApiResponse.js";
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,

@@ -24,7 +24,7 @@ export const verifySubscription = (action) => {
 
       if (!user) return ApiError.send(res, 404, "User not found");
 
-      subscription = user.subscriptions?.find((sub) => sub.isActive) || null;
+      subscription = user.subscriptions?.find((sub) => sub.isActive);
       createdAt = new Date(user.createdAt);
     } else {
       // Mailbox flow

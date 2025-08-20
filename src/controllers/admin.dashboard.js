@@ -12,26 +12,15 @@ export const getDashboardData = asyncHandler(async (req, res) => {
     }
 
     const totalDomains = await Prisma.domain.count({ where: { userId } });
-    if (!totalDomains)
-      return ApiError.send(res, 404, "total Doamins not found");
     const totalMailboxes = await Prisma.mailbox.count({ where: { userId } });
-    if (!totalMailboxes)
-      return ApiError.send(res, 404, "total Mailbox not found");
     const totalReceivedEmails = await Prisma.receivedEmail.count({
       where: { userId },
     });
-    if (!totalReceivedEmails)
-      return ApiError.send(res, 404, "total received emails not found");
-
     const totalSentEmails = await Prisma.sentEmail.count({ where: { userId } });
-    if (!totalSentEmails)
-      return ApiError.send(res, 404, "total sent emails not found");
-
     const storageUsed = await Prisma.attachment.aggregate({
       where: { userId },
       _sum: { fileSize: true },
     });
-    if (!storageUsed) return ApiError.send(res, 404, "storage (0)");
 
     const recentDomains = await Prisma.domain.findMany({
       where: { userId },
@@ -40,16 +29,12 @@ export const getDashboardData = asyncHandler(async (req, res) => {
       include: { mailboxes: true },
     });
 
-    if (!storageUsed) return ApiError.send(res, 404, "recent doamin (0)");
-
     const recentSentEmails = await Prisma.sentEmail.findMany({
       where: { userId },
       take: 5,
       orderBy: { sentAt: "desc" },
       include: { mailbox: true },
     });
-    if (!recentSentEmails)
-      return ApiError.send(res, 404, "recent sent mail (0)");
 
     const recentReceivedEmails = await Prisma.receivedEmail.findMany({
       where: { userId },
@@ -57,9 +42,6 @@ export const getDashboardData = asyncHandler(async (req, res) => {
       orderBy: { receivedAt: "desc" },
       include: { mailbox: true },
     });
-    if (!recentReceivedEmails)
-      return ApiError.send(res, 404, "recent received mail (0)");
-
     return res.status(200).json(
       new ApiResponse(200, "Dashboard data fetched successfully", {
         totalDomains,

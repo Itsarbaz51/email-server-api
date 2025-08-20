@@ -10,6 +10,7 @@ import { validateDomain } from "../services/sendgridService.js";
 export const addDomain = asyncHandler(async (req, res) => {
   const { name } = req.body;
   const userId = req.user?.id;
+  // const s
 
   if (!name || !userId) {
     return ApiError.send(res, 400, "Domain name and user ID required");
