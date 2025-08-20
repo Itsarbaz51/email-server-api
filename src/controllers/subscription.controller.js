@@ -12,14 +12,11 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_SECRET,
 });
 
-// Example USD prices
-
 const planPricesUSD = {
-  BASIC: 5, // $5 per month
+  BASIC: 5,
   PREMIUM: 15,
 };
 
-// Plan limits
 const planLimits = {
   FREE: {
     maxDomains: 1,
@@ -44,7 +41,6 @@ const planLimits = {
   },
 };
 
-// Adjust limits for yearly billing
 const adjustLimitsForBillingCycle = (limits, billingCycle) => {
   if (billingCycle.toUpperCase() === "YEARLY") {
     return {
@@ -64,13 +60,12 @@ const adjustLimitsForBillingCycle = (limits, billingCycle) => {
   return limits;
 };
 
-// Fetch USD→INR rate
 async function getUsdToInrRate() {
   try {
     const res = await axios.get(
       "https://api.frankfurter.app/latest?from=USD&to=INR"
     );
-    return res.data.rates?.INR || 83; // ✅ no .json()
+    return res.data.rates?.INR || 83;
   } catch (error) {
     console.error("Error fetching exchange rate:", error);
     return 83;
@@ -105,7 +100,7 @@ export const createOrRenewSubscription = asyncHandler(async (req, res) => {
   if (!validCycles.includes(billingCycle))
     return ApiError.send(res, 400, "Invalid billing cycle");
 
-  // Payment verification for paid plans
+  // Paid plan verification
   if (plan !== "FREE") {
     if (!razorpayOrderId || !razorpayPaymentId) {
       return ApiError.send(
@@ -115,28 +110,24 @@ export const createOrRenewSubscription = asyncHandler(async (req, res) => {
       );
     }
 
-    // Fetch live exchange rate
     const usdToInr = await getUsdToInrRate();
     let planPriceUSD = planPricesUSD[plan];
-    if (billingCycle === "YEARLY") planPriceUSD *= 12; // yearly price
+    if (billingCycle === "YEARLY") planPriceUSD *= 12;
 
     const expectedAmountInPaise = Math.round(planPriceUSD * usdToInr * 100);
 
-    // Verify Razorpay payment
     const payment = await razorpay.payments.fetch(razorpayPaymentId);
     if (!payment) return ApiError.send(res, 400, "Payment not found");
-
     if (payment.status !== "captured")
       return ApiError.send(res, 400, "Payment not captured");
     if (payment.order_id !== razorpayOrderId)
       return ApiError.send(res, 400, "Order ID mismatch");
-    if (payment.amount !== expectedAmountInPaise) {
+    if (payment.amount !== expectedAmountInPaise)
       return ApiError.send(
         res,
         400,
         `Payment amount mismatch. Expected ${expectedAmountInPaise}, got ${payment.amount}`
       );
-    }
 
     paymentStatus = "SUCCESS";
     paymentProvider = "RAZORPAY";
@@ -162,12 +153,10 @@ export const createOrRenewSubscription = asyncHandler(async (req, res) => {
 
   const baseLimits = planLimits[plan];
   const adjustedLimits = adjustLimitsForBillingCycle(baseLimits, billingCycle);
-  console.log(userId);
 
   const existingSub = await Prisma.subscription.findFirst({
     where: { userId, isActive: true },
   });
-  console.log(existingSub);
 
   const storageUsedMB = existingSub?.storageUsedMB || 0;
 
@@ -214,9 +203,8 @@ export const getMySubscription = asyncHandler(async (req, res) => {
     where: { userId, isActive: true },
   });
 
-  if (!subscription) {
+  if (!subscription)
     return ApiError.send(res, 404, "No active subscription found");
-  }
 
   return res
     .status(200)
@@ -231,9 +219,8 @@ export const cancelSubscription = asyncHandler(async (req, res) => {
     where: { userId, isActive: true },
   });
 
-  if (!subscription) {
+  if (!subscription)
     return ApiError.send(res, 404, "No active subscription found");
-  }
 
   await Prisma.subscription.update({
     where: { id: subscription.id },

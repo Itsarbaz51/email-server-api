@@ -1,9 +1,13 @@
 import express from "express";
 import { requireAuth } from "../middlewares/auth.middleware.js";
-import {cancelSubscription, createOrRenewSubscription, getMySubscription} from "../controllers/subscription.controller.js"
+import {
+  cancelSubscription,
+  createOrRenewSubscription,
+  getMySubscription,
+} from "../controllers/subscription.controller.js";
 
 const router = express.Router();
-router.use(requireAuth)
+router.use(requireAuth);
 
 router.post("/create-renew-subcription", createOrRenewSubscription);
 router.get("/get-my-subcription", getMySubscription);
