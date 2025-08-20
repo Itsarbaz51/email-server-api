@@ -29,7 +29,9 @@ import mailboxRoute from "./routes/mailbox.route.js";
 import mailRoute from "./routes/mail.route.js";
 import subscriptionRoute from "./routes/subscription.route.js";
 import dashboardRoute from "./routes/dashboard.route.js";
+import paymentRoutes from "./routes/payment.js";
 
+app.use("/api/payment", paymentRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/domain", domainRoutes);
 app.use("/api/mailboxes", mailboxRoute);
