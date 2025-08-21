@@ -35,8 +35,6 @@ enum MailboxStatus {
 enum paymentProviders {
   FREE
   RAZORPAY
-  STRIPE
-  PAYPAL
 }
 
 enum PaymentStatus {
@@ -53,7 +51,6 @@ enum InvoiceStatus {
   FAILED
 }
 
-
 model User {
   id                 String   @id @default(cuid())
   email              String   @unique
@@ -62,6 +59,7 @@ model User {
   name               String
   termsAndConditions Boolean  @default(false)
   role               UserRole @default(ADMIN)
+  isAuthorized       Boolean  @default(false)
   isActive           Boolean  @default(true)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
@@ -80,11 +78,11 @@ model User {
 model Subscription {
   id                String           @id @default(cuid())
   plan              String
-  billingCycle      String 
+  billingCycle      String
   maxMailboxes      Int              @default(1)
   maxDomains        Int              @default(1)
-  maxSentEmails     Int              @default(100) // New field: max sent emails allowed
-  maxReceivedEmails Int              @default(1000) // New field: max received emails allowed
+  maxSentEmails     Int              @default(100)
+  maxReceivedEmails Int              @default(1000)
   allowedStorageMB  Int              @default(1024)
   storageUsedMB     Int              @default(0)
   paymentStatus     PaymentStatus    @default(PENDING)
@@ -97,19 +95,19 @@ model Subscription {
   endDate           DateTime
   isActive          Boolean          @default(true)
   userId            String
+  invoices          Invoice[]
   user              User             @relation(fields: [userId], references: [id])
 }
 
-
 model Invoice {
-  id              String         @id @default(cuid())
-  invoiceId       String         @unique
-  subscriptionId  String
-  amount          Float
-  status          InvoiceStatus  @default(PENDING)
-  createdAt       DateTime       @default(now())
+  id             String        @id @default(cuid())
+  invoiceId      String        @unique
+  subscriptionId String
+  amount         Float
+  status         InvoiceStatus @default(PENDING)
+  createdAt      DateTime      @default(now())
 
-  subscription    Subscription   @relation(fields: [subscriptionId], references: [id])
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
 }
 
 model Domain {
@@ -154,7 +152,7 @@ model Mailbox {
   domainId      String
   status        MailboxStatus @default(PENDING)
   isActive      Boolean       @default(true)
-  usedStorageMB Int           @default(0) // Usage of this mailbox only
+  usedStorageMB Int           @default(0)
   lastLoginAt   DateTime?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -198,6 +196,7 @@ model ReceivedEmail {
   subject    String
   body       String
   messageId  String
+  status     String   @default("PENDING")
   isRead     Boolean  @default(false)
   deleted    Boolean  @default(false)
   starred    Boolean  @default(false)
@@ -216,11 +215,11 @@ model Attachment {
   mailboxId       String
   userId          String
   emailId         String?
-  receivedEmailId String? // Nullable for sent emails
+  receivedEmailId String?
   fileName        String
   fileSize        Int
   mimeType        String
-  s3Key           String // S3 object path
+  s3Key           String
   s3Bucket        String
   createdAt       DateTime @default(now())
 
@@ -230,15 +229,4 @@ model Attachment {
   receivedEmail ReceivedEmail? @relation(fields: [receivedEmailId], references: [id])
 
   @@map("attachments")
-}
-
-model SystemConfig {
-  id          String   @id @default(cuid())
-  key         String   @unique
-  value       String
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@map("system_configs")
 }
