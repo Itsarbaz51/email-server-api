@@ -10,6 +10,7 @@ import {
   resetPassword,
   updateProfile,
   allAdmins,
+  toggleAdminStatus,
 } from "../controllers/auth.controller.js";
 import { requireAuth, requireRole } from "../middlewares/auth.middleware.js";
 
@@ -30,5 +31,10 @@ router.post("/change-password", requireAuth, changePassword);
 // ================= super admin ========================
 
 router.get("/all-admins", requireAuth, requireRole(["SUPER_ADMIN"]), allAdmins);
-
+router.patch(
+  "admin-toggle/:userId",
+  requireAuth,
+  requireRole(["SUPER_ADMIN"]),
+  toggleAdminStatus
+);
 export default router;

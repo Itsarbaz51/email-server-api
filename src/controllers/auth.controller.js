@@ -493,14 +493,68 @@ export const allAdmins = asyncHandler(async (req, res) => {
     orderBy: { createdAt: "desc" },
   });
 
-  const total = admins.length;
-
   return res.status(200).json(
     new ApiResponse(200, "All admins fetched successfully", {
-      meta: { total },
       data: admins,
     })
   );
+});
+
+export const toggleAdminStatus = asyncHandler(async (req, res) => {
+  const superAdminId = req.user?.id;
+  const { userId } = req.params;
+
+  if (!superAdminId) {
+    return ApiError.send(res, 401, "Unauthorized user");
+  }
+
+  if (req.user.role !== "SUPER_ADMIN") {
+    return ApiError.send(
+      res,
+      403,
+      "Forbidden: Only superadmin can access this"
+    );
+  }
+
+  if (!userId) {
+    return ApiError.send(res, 400, "'userId' is required");
+  }
+
+  if (userId === superAdminId) {
+    return ApiError.send(res, 400, "You cannot update your own status");
+  }
+
+  const target = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      isActive: true,
+      isAuthorized: true,
+    },
+  });
+
+  if (!target) return ApiError.send(res, 404, "Admin not found");
+  if (target.role === "SUPER_ADMIN")
+    return ApiError.send(res, 403, "Cannot update another super admin");
+
+  const updated = await Prisma.user.update({
+    where: { id: userId },
+    data: { isActive: !target.isActive },
+    select: { id: true, email: true, name: true, role: true, isActive: true },
+  });
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        `Admin status toggled to ${updated.isActive ? "Active ✅" : "Inactive ❌"}`,
+        updated
+      )
+    );
 });
 
 export {
