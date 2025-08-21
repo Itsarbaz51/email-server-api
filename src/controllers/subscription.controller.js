@@ -165,8 +165,10 @@ export const createOrRenewSubscription = asyncHandler(async (req, res) => {
   const startDate = new Date();
   const endDate = new Date();
   if (plan === "FREE") endDate.setDate(startDate.getDate() + 8);
-  else if (billingCycle === "MONTHLY") endDate.setMonth(startDate.getMonth() + 1);
-  else if (billingCycle === "YEARLY") endDate.setFullYear(startDate.getFullYear() + 1);
+  else if (billingCycle === "MONTHLY")
+    endDate.setMonth(startDate.getMonth() + 1);
+  else if (billingCycle === "YEARLY")
+    endDate.setFullYear(startDate.getFullYear() + 1);
 
   const limits = adjustLimitsForBillingCycle(planLimits[plan], billingCycle);
 
@@ -206,19 +208,21 @@ export const createOrRenewSubscription = asyncHandler(async (req, res) => {
         plan === "FREE"
           ? 0
           : billingCycle === "MONTHLY"
-            ? planPricesUSD[plan] * 83
-            : planPricesUSD[plan] * 83 * 12,
+            ? planPricesUSD[plan] * 87
+            : planPricesUSD[plan] * 87 * 12,
       status: paymentStatus === "SUCCESS" ? "PAID" : "PENDING",
     },
   });
 
-  return res.status(200).json(
-    new ApiResponse(
-      200,
-      existingSub ? "Subscription renewed" : "Subscription created",
-      subscription
-    )
-  );
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        existingSub ? "Subscription renewed" : "Subscription created",
+        subscription
+      )
+    );
 });
 
 // ======================= CREATE RAZORPAY ORDER ======================
@@ -249,7 +253,8 @@ export const createRazorpayOrder = asyncHandler(async (req, res) => {
 
   const amount = Math.round(priceUSD * usdToInr * 100);
 
-  const receipt = receiptId || `ord_${plan.slice(0, 3)}_${Date.now()}`.slice(0, 40);
+  const receipt =
+    receiptId || `ord_${plan.slice(0, 3)}_${Date.now()}`.slice(0, 40);
 
   const options = {
     amount,
@@ -264,9 +269,9 @@ export const createRazorpayOrder = asyncHandler(async (req, res) => {
 
   try {
     const order = await razorpay.orders.create(options);
-    return res.status(200).json(
-      new ApiResponse(200, "Order created successfully", order)
-    );
+    return res
+      .status(200)
+      .json(new ApiResponse(200, "Order created successfully", order));
   } catch (error) {
     console.error("Razorpay order creation error:", error);
     return ApiError.send(res, 500, "Failed to create order");
@@ -287,9 +292,9 @@ export const getCurrentSubscription = asyncHandler(async (req, res) => {
     return ApiError.send(res, 404, "No active subscription found");
   }
 
-  return res.status(200).json(
-    new ApiResponse(200, "Subscription retrieved", subscription)
-  );
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Subscription retrieved", subscription));
 });
 
 export const cancelSubscription = asyncHandler(async (req, res) => {
