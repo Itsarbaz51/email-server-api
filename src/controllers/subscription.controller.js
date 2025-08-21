@@ -328,9 +328,26 @@ export async function updateInvoiceStatus(invoiceId, status) {
 
 // ======================= RAZORPAY WEBHOOK ======================
 export const WebhookRazorpay = asyncHandler(async (req, res) => {
-  const event = req.body;
-
   try {
+    const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+
+    // Verify signature
+    const shasum = crypto.createHmac("sha256", secret);
+    shasum.update(JSON.stringify(req.body));
+    const digest = shasum.digest("hex");
+
+    const signature = req.headers["x-razorpay-signature"];
+    if (digest !== signature) {
+      console.error("Invalid webhook signature");
+      return res.status(400).json({ error: "Invalid signature" });
+    }
+
+    const event = req.body;
+    console.log("Webhook event:", event.event);
+
+    // =============================
+    // ✅ Payment Captured
+    // =============================
     if (event.event === "payment.captured") {
       const paymentId = event.payload.payment.entity.id;
 
@@ -345,13 +362,34 @@ export const WebhookRazorpay = asyncHandler(async (req, res) => {
 
         if (invoice) {
           await updateInvoiceStatus(invoice.id, "PAID");
+          console.log("✅ Invoice marked as PAID:", invoice.id);
         }
       }
-
-      return res.json({ success: true });
     }
 
-    res.json({ success: false });
+    // =============================
+    // ❌ Payment Failed
+    // =============================
+    if (event.event === "payment.failed") {
+      const paymentId = event.payload.payment.entity.id;
+
+      const subscription = await Prisma.subscription.findFirst({
+        where: { paymentId },
+      });
+
+      if (subscription) {
+        const invoice = await Prisma.invoice.findFirst({
+          where: { subscriptionId: subscription.id },
+        });
+
+        if (invoice) {
+          await updateInvoiceStatus(invoice.id, "FAILED");
+          console.log("❌ Invoice marked as FAILED:", invoice.id);
+        }
+      }
+    }
+
+    res.json({ success: true });
   } catch (err) {
     console.error("Webhook error:", err);
     res.status(500).json({ error: "Webhook handling failed" });
