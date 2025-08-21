@@ -1,5 +1,5 @@
 import Prisma from "../src/db/db.js";
-import { comparePassword } from "../src/utils/lib.js";
+import { hashPassword } from "../src/utils/lib.js";
 
 async function main() {
   const superAdminEmail = "azzunique.com@gmail.com";
@@ -21,7 +21,7 @@ async function main() {
     return;
   }
 
-  const hashed = await comparePassword(superAdminPassword);
+  const hashed = await hashPassword(superAdminPassword);
 
   const superAdmin = await Prisma.user.create({
     data: {
