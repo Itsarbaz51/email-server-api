@@ -1,4 +1,3 @@
-// src/cron/subscriptionRenewal.js
 import cron from "node-cron";
 import Prisma from "../db/db.js";
 import { generateInvoiceId } from "../utils/lib.js";
