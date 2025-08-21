@@ -17,51 +17,6 @@ const cookieOptions = {
   secure: true,
 };
 
-// signup on role base protected middleware by super-admin and admin role base
-const signupAdmin = asyncHandler(async (req, res) => {
-  const { name, email, password, role } = req.body;
-
-  if (![name, email, password].every((v) => v && String(v).trim().length > 0)) {
-    return ApiError.send(res, 400, "All fields are required");
-  }
-
-  const existingUser = await Prisma.user.findUnique({ where: { email } });
-  if (existingUser) return ApiError.send(res, 409, "Email already registered");
-
-  const hashedPassword = await hashPassword(password);
-
-  // Check if a SUPER_ADMIN already exists in DB
-  let finalRole = "ADMIN"; // default
-
-  if (role === "SUPER_ADMIN") {
-    const existingSuperAdmin = await Prisma.user.findFirst({
-      where: { role: "SUPER_ADMIN" },
-    });
-    if (!existingSuperAdmin) {
-      finalRole = "SUPER_ADMIN";
-    }
-  } else {
-    finalRole = "ADMIN"; // force admin if role not SUPER_ADMIN
-  }
-
-  const created = await Prisma.user.create({
-    data: {
-      name,
-      email,
-      password: hashedPassword,
-      role: finalRole,
-    },
-  });
-
-  if (!created) return ApiError.send(res, 500, "User creation failed");
-
-  return res
-    .status(201)
-    .json(
-      new ApiResponse(201, "Admin registered successfully", { id: created.id })
-    );
-});
-
 // sigup public route admin
 const signup = asyncHandler(async (req, res) => {
   const { name, email, phone, password, termsAndConditions } = req.body;
@@ -109,28 +64,33 @@ const login = asyncHandler(async (req, res) => {
     return ApiError.send(res, 400, "Email/Phone and password are required");
   }
 
+  // 1. Try finding in User table (Admin / Super Admin)
   const user = await Prisma.user.findFirst({
     where: {
       OR: [{ email: emailOrPhone.toLowerCase() }, { phone: emailOrPhone }],
     },
-    select: { id: true, email: true, password: true, role: true, name: true },
+    select: {
+      id: true,
+      email: true,
+      password: true,
+      role: true,
+      name: true,
+    },
   });
 
+  // ✅ If user not found in User table → check Mailbox (USER role)
   if (!user) {
-    const exitsMailbox = await Prisma.mailbox.findFirst({
+    const mailbox = await Prisma.mailbox.findFirst({
       where: { emailAddress: emailOrPhone },
     });
 
-    if (!exitsMailbox) return ApiError.send(res, 404, "Mailbox user not found");
+    if (!mailbox) return ApiError.send(res, 404, "Mailbox user not found");
 
-    const checkedPassword = await comparePassword(
-      password,
-      exitsMailbox.password
-    );
-    if (!checkedPassword) return ApiError.send(res, 403, "Password Invalid");
+    const isPasswordValid = await comparePassword(password, mailbox.password);
+    if (!isPasswordValid) return ApiError.send(res, 403, "Password Invalid");
 
     const updatedMailbox = await Prisma.mailbox.update({
-      where: { id: exitsMailbox.id },
+      where: { id: mailbox.id },
       data: { lastLoginAt: new Date() },
     });
 
@@ -146,11 +106,6 @@ const login = asyncHandler(async (req, res) => {
     );
 
     const { password: _, lastLoginAt, ...mailboxSafe } = updatedMailbox;
-
-    const mailboxResponse = {
-      ...mailboxSafe,
-      role: "USER",
-    };
 
     return res
       .status(200)
@@ -168,24 +123,30 @@ const login = asyncHandler(async (req, res) => {
         domain: ".primewebdev.in",
         maxAge: 7 * 24 * 60 * 60 * 1000,
       })
-      .json(new ApiResponse(200, "Login successful", mailboxResponse));
+      .json(
+        new ApiResponse(200, "Login successful", {
+          ...mailboxSafe,
+          role: "USER",
+        })
+      );
   }
 
-  console.log("USER FOUND:", user);
-
-  console.log(await comparePassword(password, user.password));
-
-  if (!user || !(await comparePassword(password, user.password))) {
+  // ✅ If User exists (Admin / Super Admin)
+  const isPasswordValid = await comparePassword(password, user.password);
+  if (!isPasswordValid) {
     return ApiError.send(res, 401, "Invalid credentials");
   }
 
-  const accessToken = generateAccessToken(user.id, user.email, user.role);
-  const refreshToken = generateRefreshToken(user.id, user.email, user.role);
+  // Ensure role is either ADMIN or SUPER_ADMIN
+  let userRole = "ADMIN";
+  if (user.role === "SUPER_ADMIN") {
+    userRole = "SUPER_ADMIN";
+  }
+
+  const accessToken = generateAccessToken(user.id, user.email, userRole);
+  const refreshToken = generateRefreshToken(user.id, user.email, userRole);
 
   const { password: _, ...userSafe } = user;
-
-  console.log("TOKENS:", { accessToken, refreshToken });
-  console.log("RESPONDING WITH USER:", userSafe);
 
   return res
     .status(200)
@@ -203,7 +164,12 @@ const login = asyncHandler(async (req, res) => {
       domain: ".primewebdev.in",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     })
-    .json(new ApiResponse(200, "Login successful", userSafe));
+    .json(
+      new ApiResponse(200, "Login successful", {
+        ...userSafe,
+        role: userRole,
+      })
+    );
 });
 
 // refreshAccessToken
@@ -510,8 +476,152 @@ const resetPassword = asyncHandler(async (req, res) => {
   }
 });
 
+// ====================== suerper admin ==========================
+export const allAdmins = asyncHandler(async (req, res) => {
+  // ---- Authz ----
+  const superAdminId = req.user?.id;
+  if (!superAdminId) {
+    return ApiError.send(res, 401, "Unauthorized user");
+  }
+  if (req.user.role !== "SUPER_ADMIN") {
+    return ApiError.send(
+      res,
+      403,
+      "Forbidden: Only superadmin can access this"
+    );
+  }
+
+  // ---- Query params ----
+  const page = Math.max(parseInt((req.query.page ?? "1").toString(), 10), 1);
+  const limit = Math.min(
+    Math.max(parseInt((req.query.limit ?? "20").toString(), 10), 1),
+    100
+  );
+  const skip = (page - 1) * limit;
+
+  const search = (req.query.search ?? "").toString().trim();
+
+  const includeTrashed =
+    (req.query.includeTrashed ?? "false").toString().toLowerCase() === "true";
+
+  const statusParam = (req.query.status ?? "").toString().toUpperCase();
+  const statusFilter =
+    statusParam === "ACTIVE"
+      ? true
+      : statusParam === "INACTIVE"
+        ? false
+        : undefined;
+
+  const verifiedParam = (req.query.verified ?? "").toString().toLowerCase();
+  const verifiedFilter =
+    verifiedParam === "true"
+      ? true
+      : verifiedParam === "false"
+        ? false
+        : undefined;
+
+  const sortWhitelist = [
+    "createdAt",
+    "updatedAt",
+    "name",
+    "email",
+    "lastLoginAt",
+  ];
+  const sortBy = sortWhitelist.includes((req.query.sortBy ?? "").toString())
+    ? req.query.sortBy.toString()
+    : "createdAt";
+  const sortOrder =
+    (req.query.sortOrder ?? "desc").toString().toLowerCase() === "asc"
+      ? "asc"
+      : "desc";
+
+  const dateFrom = req.query.dateFrom
+    ? new Date(req.query.dateFrom.toString())
+    : undefined;
+  const dateTo = req.query.dateTo
+    ? new Date(req.query.dateTo.toString())
+    : undefined;
+
+  // ---- Prisma where ----
+  const where = {
+    role: "ADMIN",
+    ...(!includeTrashed ? { deletedAt: null } : {}),
+    ...(typeof statusFilter === "boolean" ? { isActive: statusFilter } : {}),
+    ...(typeof verifiedFilter === "boolean"
+      ? { isVerified: verifiedFilter }
+      : {}),
+    ...(search
+      ? {
+          OR: [
+            { name: { contains: search, mode: "insensitive" } },
+            { email: { contains: search, mode: "insensitive" } },
+            { mobile: { contains: search, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+    ...(dateFrom || dateTo
+      ? {
+          createdAt: {
+            ...(dateFrom ? { gte: dateFrom } : {}),
+            ...(dateTo ? { lte: dateTo } : {}),
+          },
+        }
+      : {}),
+  };
+
+  // ---- Query DB ----
+  const [total, admins] = await Promise.all([
+    Prisma.user.count({ where }),
+    Prisma.user.findMany({
+      where,
+      orderBy: { [sortBy]: sortOrder },
+      skip,
+      take: limit,
+      // Exclude sensitive fields (adjust to your schema)
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        mobile: true,
+        role: true,
+        isActive: true,
+        isVerified: true,
+        lastLoginAt: true,
+        createdAt: true,
+        updatedAt: true,
+        // password, otp, tokens NOT selected
+      },
+    }),
+  ]);
+
+  const totalPages = Math.ceil(total / limit);
+
+  return res.status(200).json(
+    new ApiResponse(200, "All admins fetched successfully", {
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+        sortBy,
+        sortOrder,
+      },
+      filters: {
+        search: search || null,
+        status: statusParam || null,
+        verified: verifiedParam || null,
+        dateFrom: dateFrom ? dateFrom.toISOString() : null,
+        dateTo: dateTo ? dateTo.toISOString() : null,
+        includeTrashed,
+      },
+      data: admins,
+    })
+  );
+});
+
 export {
-  signupAdmin,
   signup,
   login,
   refreshAccessToken,

@@ -2,7 +2,7 @@ import Prisma from "../db/db.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { comparePassword, hashPassword } from "../utils/lib.js";
+import { hashPassword } from "../utils/lib.js";
 
 // Create Mailbox
 const createMailbox = asyncHandler(async (req, res) => {
@@ -235,5 +235,128 @@ setInterval(
   },
   5 * 60 * 1000
 );
+
+//////////////////////////////////////////// suer admin /////////////////////////////////////////////////
+
+export const allMailbox = asyncHandler(async (req, res) => {
+  const superAdminId = req.user?.id;
+  if (!superAdminId) {
+    return ApiError.send(res, 401, "Unauthorized user");
+  }
+
+  if (req.user.role !== "SUPER_ADMIN") {
+    return ApiError.send(
+      res,
+      403,
+      "Forbidden: Only superadmin can access this"
+    );
+  }
+
+  // -------- Query Params ----------
+  const page = Math.max(parseInt(req.query.page?.toString() || "1", 10), 1);
+  const limit = Math.min(
+    Math.max(parseInt(req.query.limit?.toString() || "20", 10), 1),
+    100
+  );
+  const skip = (page - 1) * limit;
+
+  const search = (req.query.search || "").toString().trim();
+  const role = (req.query.role || "").toString().trim() || undefined;
+
+  const includeTrashed =
+    (req.query.includeTrashed || "false").toString().toLowerCase() === "true";
+
+  const sortWhitelist = [
+    "createdAt",
+    "updatedAt",
+    "subject",
+    "from",
+    "to",
+    "isRead",
+  ];
+  const sortBy = sortWhitelist.includes((req.query.sortBy || "").toString())
+    ? req.query.sortBy.toString()
+    : "createdAt";
+  const sortOrder =
+    (req.query.sortOrder || "desc").toString().toLowerCase() === "asc"
+      ? "asc"
+      : "desc";
+
+  // Date filters
+  const dateFrom = req.query.dateFrom
+    ? new Date(req.query.dateFrom.toString())
+    : undefined;
+  const dateTo = req.query.dateTo
+    ? new Date(req.query.dateTo.toString())
+    : undefined;
+
+  // -------- Build Prisma Where ----------
+  /**
+   * NOTE: Adjust fields in OR[] as per your mailbox schema.
+   * Common fields considered: subject, from, to, name, email, message.
+   */
+  const where = {
+    ...(role ? { role } : {}),
+    ...(!includeTrashed ? { deletedAt: null } : {}),
+    ...(search
+      ? {
+          OR: [
+            { subject: { contains: search, mode: "insensitive" } },
+            { from: { contains: search, mode: "insensitive" } },
+            { to: { contains: search, mode: "insensitive" } },
+            { name: { contains: search, mode: "insensitive" } },
+            { email: { contains: search, mode: "insensitive" } },
+            { message: { contains: search, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+    ...(dateFrom || dateTo
+      ? {
+          createdAt: {
+            ...(dateFrom ? { gte: dateFrom } : {}),
+            ...(dateTo ? { lte: dateTo } : {}),
+          },
+        }
+      : {}),
+  };
+
+  // -------- Query DB ----------
+  const [total, admins] = await Promise.all([
+    Prisma.mailbox.count({ where }),
+    Prisma.mailbox.findMany({
+      where,
+      orderBy: { [sortBy]: sortOrder },
+      skip,
+      take: limit,
+      // include / select ko yahan customize kar sakte ho:
+      // select: { id: true, subject: true, from: true, ... }
+    }),
+  ]);
+
+  const totalPages = Math.ceil(total / limit);
+
+  return res.status(200).json(
+    new ApiResponse(200, "All mailbox fetched successfully", {
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+        sortBy,
+        sortOrder,
+      },
+      filters: {
+        search: search || null,
+        role: role || null,
+        dateFrom: dateFrom ? dateFrom.toISOString() : null,
+        dateTo: dateTo ? dateTo.toISOString() : null,
+        includeTrashed,
+      },
+      data: admins,
+    })
+  );
+});
 
 export { createMailbox, getMailboxes, updateMailbox, deleteMailbox };

@@ -1,6 +1,7 @@
 import express from "express";
-import { requireAuth } from "../middlewares/auth.middleware.js";
+import { requireAuth, requireRole } from "../middlewares/auth.middleware.js";
 import {
+  allMailbox,
   createMailbox,
   deleteMailbox,
   getMailboxes,
@@ -23,5 +24,14 @@ router.put(
 );
 router.get("/get-mailbox", getMailboxes);
 router.delete("/delete-mailbox/:id", deleteMailbox);
+
+// ================= super admin ========================
+
+router.post(
+  "/all-mailboxs",
+  requireAuth,
+  requireRole(["SUPER_ADMIN"]),
+  allMailbox
+);
 
 export default router;

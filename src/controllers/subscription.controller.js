@@ -397,3 +397,213 @@ export const WebhookRazorpay = asyncHandler(async (req, res) => {
     res.status(500).json({ error: "Webhook handling failed" });
   }
 });
+
+// ================================== suer admin ===============================
+
+export const allSubscriptions = asyncHandler(async (req, res) => {
+  // ---- Auth ----
+  const superAdminId = req.user?.id;
+  if (!superAdminId) return ApiError.send(res, 401, "Unauthorized user");
+  if (req.user.role !== "SUPER_ADMIN") {
+    return ApiError.send(
+      res,
+      403,
+      "Forbidden: Only superadmin can access this"
+    );
+  }
+
+  // ---- Query Params ----
+  const page = Math.max(parseInt((req.query.page ?? "1").toString(), 10), 1);
+  const limit = Math.min(
+    Math.max(parseInt((req.query.limit ?? "20").toString(), 10), 1),
+    100
+  );
+  const skip = (page - 1) * limit;
+
+  const search = (req.query.search ?? "").toString().trim();
+  const statusParam = (req.query.status ?? "").toString().trim() || undefined;
+
+  const autoRenewParam = (req.query.autoRenew ?? "").toString().toLowerCase();
+  const autoRenewFilter =
+    autoRenewParam === "true"
+      ? true
+      : autoRenewParam === "false"
+        ? false
+        : undefined;
+
+  const userId = (req.query.userId ?? "").toString().trim() || undefined;
+  const productId = (req.query.productId ?? "").toString().trim() || undefined;
+  const planId = (req.query.planId ?? "").toString().trim() || undefined;
+
+  const includeTrashed =
+    (req.query.includeTrashed ?? "false").toString().toLowerCase() === "true";
+
+  const sortWhitelist = [
+    "createdAt",
+    "updatedAt",
+    "currentPeriodStart",
+    "currentPeriodEnd",
+    "renewedAt",
+    "status",
+    "amount",
+    "planName",
+  ];
+  const sortBy = sortWhitelist.includes((req.query.sortBy ?? "").toString())
+    ? req.query.sortBy.toString()
+    : "createdAt";
+  const sortOrder =
+    (req.query.sortOrder ?? "desc").toString().toLowerCase() === "asc"
+      ? "asc"
+      : "desc";
+
+  // ---- Date ranges ----
+  const toDate = (v) => (v ? new Date(v.toString()) : undefined);
+
+  const dateFrom = toDate(req.query.dateFrom);
+  const dateTo = toDate(req.query.dateTo);
+
+  const activeFrom = toDate(req.query.activeFrom);
+  const activeTo = toDate(req.query.activeTo);
+
+  const expireFrom = toDate(req.query.expireFrom);
+  const expireTo = toDate(req.query.expireTo);
+
+  const renewedFrom = toDate(req.query.renewedFrom);
+  const renewedTo = toDate(req.query.renewedTo);
+
+  // ---- Where ----
+  /**
+   * Adjust field names per your Prisma schema:
+   * - model: Subscription
+   * - fields: subscriptionCode | planName | amount | status | autoRenew | currentPeriodStart | currentPeriodEnd | renewedAt | deletedAt | createdAt
+   * - relations: user, product, plan
+   */
+  const where = {
+    ...(!includeTrashed ? { deletedAt: null } : {}),
+    ...(statusParam ? { status: statusParam } : {}),
+    ...(typeof autoRenewFilter === "boolean"
+      ? { autoRenew: autoRenewFilter }
+      : {}),
+    ...(userId ? { userId } : {}),
+    ...(productId ? { productId } : {}),
+    ...(planId ? { planId } : {}),
+    ...(search
+      ? {
+          OR: [
+            { subscriptionCode: { contains: search, mode: "insensitive" } },
+            { planName: { contains: search, mode: "insensitive" } },
+            {
+              user: {
+                OR: [
+                  { name: { contains: search, mode: "insensitive" } },
+                  { email: { contains: search, mode: "insensitive" } },
+                ],
+              },
+            },
+            { product: { name: { contains: search, mode: "insensitive" } } },
+          ],
+        }
+      : {}),
+    ...(dateFrom || dateTo
+      ? {
+          createdAt: {
+            ...(dateFrom ? { gte: dateFrom } : {}),
+            ...(dateTo ? { lte: dateTo } : {}),
+          },
+        }
+      : {}),
+    ...(activeFrom || activeTo
+      ? {
+          currentPeriodStart: {
+            ...(activeFrom ? { gte: activeFrom } : {}),
+            ...(activeTo ? { lte: activeTo } : {}),
+          },
+        }
+      : {}),
+    ...(expireFrom || expireTo
+      ? {
+          currentPeriodEnd: {
+            ...(expireFrom ? { gte: expireFrom } : {}),
+            ...(expireTo ? { lte: expireTo } : {}),
+          },
+        }
+      : {}),
+    ...(renewedFrom || renewedTo
+      ? {
+          renewedAt: {
+            ...(renewedFrom ? { gte: renewedFrom } : {}),
+            ...(renewedTo ? { lte: renewedTo } : {}),
+          },
+        }
+      : {}),
+  };
+
+  // ---- DB ----
+  const [total, subscriptions] = await Promise.all([
+    Prisma.subscription.count({ where }),
+    Prisma.subscription.findMany({
+      where,
+      orderBy: { [sortBy]: sortOrder },
+      skip,
+      take: limit,
+      select: {
+        id: true,
+        subscriptionCode: true,
+        status: true,
+        planName: true,
+        amount: true,
+        currency: true,
+        autoRenew: true,
+        currentPeriodStart: true,
+        currentPeriodEnd: true,
+        renewedAt: true,
+        createdAt: true,
+        updatedAt: true,
+        userId: true,
+        productId: true,
+        planId: true,
+        user: { select: { id: true, name: true, email: true } },
+        product: { select: { id: true, name: true } },
+        plan: {
+          select: { id: true, name: true, interval: true, intervalCount: true },
+        },
+      },
+    }),
+  ]);
+
+  const totalPages = Math.ceil(total / limit);
+
+  return res.status(200).json(
+    new ApiResponse(200, "All subscriptions fetched successfully", {
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+        sortBy,
+        sortOrder,
+      },
+      filters: {
+        search: search || null,
+        status: statusParam || null,
+        autoRenew:
+          typeof autoRenewFilter === "boolean" ? autoRenewFilter : null,
+        userId: userId || null,
+        productId: productId || null,
+        planId: planId || null,
+        dateFrom: dateFrom ? dateFrom.toISOString() : null,
+        dateTo: dateTo ? dateTo.toISOString() : null,
+        activeFrom: activeFrom ? activeFrom.toISOString() : null,
+        activeTo: activeTo ? activeTo.toISOString() : null,
+        expireFrom: expireFrom ? expireFrom.toISOString() : null,
+        expireTo: expireTo ? expireTo.toISOString() : null,
+        renewedFrom: renewedFrom ? renewedFrom.toISOString() : null,
+        renewedTo: renewedTo ? renewedTo.toISOString() : null,
+        includeTrashed,
+      },
+      data: subscriptions,
+    })
+  );
+});
