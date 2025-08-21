@@ -2,7 +2,7 @@ import { Router } from "express";
 import { requireAuth, requireRole } from "../middlewares/auth.middleware.js";
 import {
   addDomain,
-  verifyDomain,
+  // verifyDomain,
   getDomains,
   deleteDomain,
   allDomains,
@@ -19,12 +19,12 @@ router.post(
 );
 router.get("/get-domains", requireAuth, getDomains);
 
-router.get(
-  "/verify-domain/:domainName",
-  requireAuth,
-  verifySubscription("verifyDomain"),
-  verifyDomain
-);
+// router.get(
+//   "/verify-domain/:domainName",
+//   requireAuth,
+//   verifySubscription("verifyDomain"),
+//   verifyDomain
+// );
 router.delete("/delete-domain/:domainName", requireAuth, deleteDomain);
 
 // ================= super admin ========================
