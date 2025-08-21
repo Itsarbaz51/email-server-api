@@ -2,7 +2,8 @@ import cron from "node-cron";
 import Prisma from "../db/db.js";
 import { generateInvoiceId } from "../utils/lib.js";
 
-cron.schedule("*/1 * * * *", async () => {
+cron.schedule("* * * * *", async () => {
+  console.log("⏰ Cron chal gaya!");
   console.log("🔄 Running daily subscription renewal check...");
 
   const today = new Date();
