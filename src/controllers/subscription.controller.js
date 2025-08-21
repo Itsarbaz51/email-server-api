@@ -287,7 +287,7 @@ export const getCurrentSubscription = asyncHandler(async (req, res) => {
 
   const subscription = await Prisma.subscription.findFirst({
     where: { userId, isActive: true },
-    include: { invoice: true },
+    include: { invoices: true },
   });
 
   if (!subscription) {
