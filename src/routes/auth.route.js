@@ -11,6 +11,7 @@ import {
   updateProfile,
   allAdmins,
   toggleAdminStatus,
+  getAllData,
 } from "../controllers/auth.controller.js";
 import { requireAuth, requireRole } from "../middlewares/auth.middleware.js";
 
@@ -36,5 +37,11 @@ router.patch(
   requireAuth,
   requireRole(["SUPER_ADMIN"]),
   toggleAdminStatus
+);
+router.get(
+  "/all-data",
+  requireAuth,
+  requireRole(["SUPER_ADMIN"]),
+  getAllData
 );
 export default router;

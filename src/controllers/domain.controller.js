@@ -387,181 +387,22 @@ async function getSendGridDNSRecords(domain) {
 }
 
 ////////////////////////// super admin ///////////////////////////////////
-/**
- * GET /domains
- * Query params (optional):
- *  - page: number (default 1)
- *  - limit: number (default 20, max 100)
- *  - search: string (matches fqdn/name/registrar/ownerEmail)
- *  - status: string (e.g. ACTIVE | EXPIRED | PENDING | SUSPENDED)  // adjust to your enum
- *  - isActive: "true" | "false"
- *  - sortBy: one of ["createdAt","updatedAt","fqdn","name","expiresAt","provider","status","isActive"]
- *  - sortOrder: "asc" | "desc" (default "desc")
- *  - dateFrom, dateTo: ISO (filters createdAt)
- *  - expiryFrom, expiryTo: ISO (filters expiresAt)
- *  - includeTrashed: "true" | "false" (default false; when false => deletedAt IS NULL)
- */
+
 export const allDomains = asyncHandler(async (req, res) => {
-  // ---- Auth ----
   const superAdminId = req.user?.id;
   if (!superAdminId) {
     return ApiError.send(res, 401, "Unauthorized user");
   }
   if (req.user.role !== "SUPER_ADMIN") {
-    return ApiError.send(
-      res,
-      403,
-      "Forbidden: Only superadmin can access this"
-    );
+    return ApiError.send(res, 403, "Forbidden: Only superadmin can access this");
   }
 
-  // ---- Query Params ----
-  const page = Math.max(parseInt(req.query.page?.toString() || "1", 10), 1);
-  const limit = Math.min(
-    Math.max(parseInt(req.query.limit?.toString() || "20", 10), 1),
-    100
-  );
-  const skip = (page - 1) * limit;
+  const domains = await Prisma.domain.findMany({
+    orderBy: { createdAt: "desc" },
+    include: { mailboxes: true }
+  });
 
-  const search = (req.query.search || "").toString().trim();
-
-  const includeTrashed =
-    (req.query.includeTrashed || "false").toString().toLowerCase() === "true";
-
-  const statusParam = (req.query.status || "").toString().trim() || undefined;
-
-  const isActiveParam = (req.query.isActive || "").toString().toLowerCase();
-  const isActiveFilter =
-    isActiveParam === "true"
-      ? true
-      : isActiveParam === "false"
-        ? false
-        : undefined;
-
-  const sortWhitelist = [
-    "createdAt",
-    "updatedAt",
-    "fqdn",
-    "name",
-    "expiresAt",
-    "provider",
-    "status",
-    "isActive",
-  ];
-  const sortBy = sortWhitelist.includes((req.query.sortBy || "").toString())
-    ? req.query.sortBy.toString()
-    : "createdAt";
-  const sortOrder =
-    (req.query.sortOrder || "desc").toString().toLowerCase() === "asc"
-      ? "asc"
-      : "desc";
-
-  // Date filters
-  const dateFrom = req.query.dateFrom
-    ? new Date(req.query.dateFrom.toString())
-    : undefined;
-  const dateTo = req.query.dateTo
-    ? new Date(req.query.dateTo.toString())
-    : undefined;
-
-  // Expiry filters
-  const expiryFrom = req.query.expiryFrom
-    ? new Date(req.query.expiryFrom.toString())
-    : undefined;
-  const expiryTo = req.query.expiryTo
-    ? new Date(req.query.expiryTo.toString())
-    : undefined;
-
-  // ---- Build Prisma Where ----
-  /**
-   * NOTE: Fields used: fqdn, name, registrar, ownerEmail, provider, status, isActive, expiresAt, createdAt, deletedAt
-   * Adjust to your actual Prisma schema if names differ.
-   */
-  const where = {
-    ...(!includeTrashed ? { deletedAt: null } : {}),
-    ...(statusParam ? { status: statusParam } : {}),
-    ...(typeof isActiveFilter === "boolean"
-      ? { isActive: isActiveFilter }
-      : {}),
-    ...(search
-      ? {
-          OR: [
-            { fqdn: { contains: search, mode: "insensitive" } },
-            { name: { contains: search, mode: "insensitive" } },
-            { registrar: { contains: search, mode: "insensitive" } },
-            { ownerEmail: { contains: search, mode: "insensitive" } },
-            { provider: { contains: search, mode: "insensitive" } },
-          ],
-        }
-      : {}),
-    ...(dateFrom || dateTo
-      ? {
-          createdAt: {
-            ...(dateFrom ? { gte: dateFrom } : {}),
-            ...(dateTo ? { lte: dateTo } : {}),
-          },
-        }
-      : {}),
-    ...(expiryFrom || expiryTo
-      ? {
-          expiresAt: {
-            ...(expiryFrom ? { gte: expiryFrom } : {}),
-            ...(expiryTo ? { lte: expiryTo } : {}),
-          },
-        }
-      : {}),
-  };
-
-  // ---- Query DB ----
-  const [total, domains] = await Promise.all([
-    Prisma.domain.count({ where }),
-    Prisma.domain.findMany({
-      where,
-      orderBy: { [sortBy]: sortOrder },
-      skip,
-      take: limit,
-      // Select ko apne schema ke hisaab se tune karein
-      select: {
-        id: true,
-        fqdn: true, // e.g. "example.com"
-        name: true, // friendly label / project name
-        provider: true, // e.g. Cloudflare, GoDaddy
-        registrar: true, // e.g. Namecheap
-        ownerEmail: true,
-        status: true, // enum/string
-        isActive: true,
-        expiresAt: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    }),
-  ]);
-
-  const totalPages = Math.ceil(total / limit);
-
-  return res.status(200).json(
-    new ApiResponse(200, "All domains fetched successfully", {
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNextPage: page < totalPages,
-        hasPrevPage: page > 1,
-        sortBy,
-        sortOrder,
-      },
-      filters: {
-        search: search || null,
-        status: statusParam || null,
-        isActive: typeof isActiveFilter === "boolean" ? isActiveFilter : null,
-        dateFrom: dateFrom ? dateFrom.toISOString() : null,
-        dateTo: dateTo ? dateTo.toISOString() : null,
-        expiryFrom: expiryFrom ? expiryFrom.toISOString() : null,
-        expiryTo: expiryTo ? expiryTo.toISOString() : null,
-        includeTrashed,
-      },
-      data: domains,
-    })
-  );
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "All domains fetched successfully", domains));
 });

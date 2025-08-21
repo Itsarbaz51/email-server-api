@@ -557,6 +557,45 @@ export const toggleAdminStatus = asyncHandler(async (req, res) => {
     );
 });
 
+export const getAllData = asyncHandler(async (req, res) => {
+  const superAdminId = req.user?.id;
+  if (!superAdminId) return ApiError.send(res, 401, "Unauthorized user");
+
+  if (req.user.role !== "SUPER_ADMIN") {
+    return ApiError.send(res, 403, "Forbidden: Only superadmin can access this");
+  }
+
+  const admins = await Prisma.user.findMany({
+    where: { role: "ADMIN" },
+    orderBy: { createdAt: "desc" },
+    include: {
+      domains: true,
+      mailboxs: true,
+      subscriptions: true,
+      _count: {
+        select: {
+          sentEmails: true,
+          receivedEmails: true,
+        },
+      },
+    },
+  });
+
+  if (!admins) return ApiError.send(res, 404, "Admin not found")
+
+  const formatted = admins.map((admin) => ({
+    ...admin,
+    totalSentEmails: admin._count.sentEmails,
+    totalReceivedEmails: admin._count.receivedEmails,
+    _count: undefined,
+  }))
+
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "All admins fetched successfully", formatted));
+});
+
 export {
   signup,
   login,
