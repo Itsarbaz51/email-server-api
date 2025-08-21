@@ -476,13 +476,11 @@ const resetPassword = asyncHandler(async (req, res) => {
   }
 });
 
-// ====================== suerper admin ==========================
+// ====================== super admin ==========================
 export const allAdmins = asyncHandler(async (req, res) => {
   // ---- Authz ----
   const superAdminId = req.user?.id;
-  if (!superAdminId) {
-    return ApiError.send(res, 401, "Unauthorized user");
-  }
+  if (!superAdminId) return ApiError.send(res, 401, "Unauthorized user");
   if (req.user.role !== "SUPER_ADMIN") {
     return ApiError.send(
       res,
@@ -501,9 +499,7 @@ export const allAdmins = asyncHandler(async (req, res) => {
 
   const search = (req.query.search ?? "").toString().trim();
 
-  const includeTrashed =
-    (req.query.includeTrashed ?? "false").toString().toLowerCase() === "true";
-
+  // status => isActive
   const statusParam = (req.query.status ?? "").toString().toUpperCase();
   const statusFilter =
     statusParam === "ACTIVE"
@@ -512,11 +508,12 @@ export const allAdmins = asyncHandler(async (req, res) => {
         ? false
         : undefined;
 
-  const verifiedParam = (req.query.verified ?? "").toString().toLowerCase();
-  const verifiedFilter =
-    verifiedParam === "true"
+  // authorized => isAuthorized
+  const authorizedParam = (req.query.authorized ?? "").toString().toLowerCase();
+  const authorizedFilter =
+    authorizedParam === "true"
       ? true
-      : verifiedParam === "false"
+      : authorizedParam === "false"
         ? false
         : undefined;
 
@@ -525,7 +522,8 @@ export const allAdmins = asyncHandler(async (req, res) => {
     "updatedAt",
     "name",
     "email",
-    "lastLoginAt",
+    "phone",
+    "role",
   ];
   const sortBy = sortWhitelist.includes((req.query.sortBy ?? "").toString())
     ? req.query.sortBy.toString()
@@ -545,17 +543,16 @@ export const allAdmins = asyncHandler(async (req, res) => {
   // ---- Prisma where ----
   const where = {
     role: "ADMIN",
-    ...(!includeTrashed ? { deletedAt: null } : {}),
     ...(typeof statusFilter === "boolean" ? { isActive: statusFilter } : {}),
-    ...(typeof verifiedFilter === "boolean"
-      ? { isVerified: verifiedFilter }
+    ...(typeof authorizedFilter === "boolean"
+      ? { isAuthorized: authorizedFilter }
       : {}),
     ...(search
       ? {
           OR: [
             { name: { contains: search, mode: "insensitive" } },
             { email: { contains: search, mode: "insensitive" } },
-            { mobile: { contains: search, mode: "insensitive" } },
+            { phone: { contains: search, mode: "insensitive" } },
           ],
         }
       : {}),
@@ -577,19 +574,17 @@ export const allAdmins = asyncHandler(async (req, res) => {
       orderBy: { [sortBy]: sortOrder },
       skip,
       take: limit,
-      // Exclude sensitive fields (adjust to your schema)
       select: {
         id: true,
         name: true,
         email: true,
-        mobile: true,
+        phone: true,
         role: true,
+        isAuthorized: true,
         isActive: true,
-        isVerified: true,
-        lastLoginAt: true,
         createdAt: true,
         updatedAt: true,
-        // password, otp, tokens NOT selected
+        // password not selected
       },
     }),
   ]);
@@ -610,11 +605,10 @@ export const allAdmins = asyncHandler(async (req, res) => {
       },
       filters: {
         search: search || null,
-        status: statusParam || null,
-        verified: verifiedParam || null,
+        status: statusParam || null, // ACTIVE / INACTIVE
+        authorized: authorizedParam || null, // "true" / "false"
         dateFrom: dateFrom ? dateFrom.toISOString() : null,
         dateTo: dateTo ? dateTo.toISOString() : null,
-        includeTrashed,
       },
       data: admins,
     })
