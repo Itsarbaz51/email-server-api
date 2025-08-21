@@ -565,8 +565,8 @@ export const getAllData = asyncHandler(async (req, res) => {
     return ApiError.send(res, 403, "Forbidden: Only superadmin can access this");
   }
 
-  const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 10;
+  const page = parseInt(String(req.query.page)) || 1;
+  const limit = parseInt(String(req.query.limit)) || 10;
 
   const [admins, totalAdmins] = await Promise.all([
     Prisma.user.findMany({
