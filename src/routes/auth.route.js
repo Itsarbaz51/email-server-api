@@ -1,6 +1,5 @@
 import express from "express";
 import {
-  signupAdmin,
   signup,
   login,
   refreshAccessToken,
@@ -24,13 +23,6 @@ router.post("/refresh", refreshAccessToken);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", requireAuth, resetPassword);
 
-// Protected
-router.post(
-  "/signup-admin",
-  requireAuth,
-  requireRole(["SUPER_ADMIN"]),
-  signupAdmin
-);
 router.post("/logout", requireAuth, logout);
 router.get("/get-current-user", requireAuth, getCurrentUser);
 router.post("/change-password", requireAuth, changePassword);

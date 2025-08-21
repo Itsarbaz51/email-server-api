@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middlewares/auth.middleware.js";
-import { getDashboardData } from "../controllers/admin.dashboard.js";
+import { getDashboardData } from "../controllers/dashboard.controller.js";
 
 const router = Router();
 
