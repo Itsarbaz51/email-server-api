@@ -107,7 +107,6 @@ export async function autoVerifyDomains() {
         data: {
           isVerified: allValid,
           status: allValid ? "VERIFIED" : "PENDING",
-          lastVerificationAttempt: new Date(),
         },
       });
 
