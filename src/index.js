@@ -1,7 +1,8 @@
 import dotenv from "dotenv";
 import app from "./app.js";
-import { incomingServer } from "./services/smtpServer.js"
+import { incomingServer } from "./services/smtpServer.js";
 import Prisma from "./db/db.js";
+import "./cron/subscriptionRenewal.js";
 
 dotenv.config({ path: "./.env" });
 
