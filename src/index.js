@@ -3,6 +3,8 @@ import app from "./app.js";
 import { incomingServer } from "./services/smtpServer.js";
 import Prisma from "./db/db.js";
 import "./cron/subscriptionRenewal.js";
+import { autoVerifyDomains } from "./controllers/domain.controller.js";
+import cron from "node-cron";
 
 dotenv.config({ path: "./.env" });
 
@@ -15,6 +17,9 @@ dotenv.config({ path: "./.env" });
     } catch (error) {
       console.error("❌ DB connection error:", error);
     }
+    // Har 30 mins me chalega
+    cron.schedule("* * * * * *", autoVerifyDomains);
+    console.log("⏰ Cron job scheduled: Domain verification every 30 minutes");
 
     incomingServer.listen(25, "0.0.0.0", () => {
       console.log("🚀 SMTP server running on port 25");

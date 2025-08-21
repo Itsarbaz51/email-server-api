@@ -77,155 +77,48 @@ export const addDomain = asyncHandler(async (req, res) => {
   );
 });
 
-// Verify Domain with Enhanced Validation
-export const verifyDomain = asyncHandler(async (req, res) => {
-  console.log(req.params);
+// Yeh aapka verifyDomain function ho sakta hai thoda modify karke
+export async function autoVerifyDomains() {
+  console.log("🔄 Running auto domain verification job...");
 
-  const { name } = req.params;
-  console.log(`Verifying domain with ID: ${name}`);
-
-  const domain = await Prisma.domain.findFirst({
-    where: { name },
+  // Sare domains fetch karo jo VERIFIED nahi hai
+  const domains = await Prisma.domain.findMany({
+    where: { isVerified: false },
     include: { dnsRecords: true },
   });
 
-  if (!domain) return ApiError.send(res, 404, "Domain not found");
-
-  // Check if domain was verified in the last 24 hours and failed
-  const lastVerificationTime = domain.lastVerificationAttempt;
-  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-
-  if (
-    lastVerificationTime &&
-    lastVerificationTime > twentyFourHoursAgo &&
-    !domain.isVerified
-  ) {
-    const nextAttemptTime = new Date(
-      lastVerificationTime.getTime() + 24 * 60 * 60 * 1000
-    );
-    const timeRemaining = Math.ceil(
-      (nextAttemptTime - new Date()) / (1000 * 60 * 60)
-    );
-
-    return ApiError.send(
-      res,
-      429,
-      `Please wait ${timeRemaining} hours before attempting verification again. DNS changes may take up to 24 hours to propagate.`
-    );
-  }
-
-  let allValid = true;
-  let validationResults = [];
-
-  // Verify DNS records
-  for (const record of domain.dnsRecords) {
-    const isValid = await verifyDnsRecord(record, domain.name);
-    console.log(
-      `Record ${record.recordName} (${record.recordType}): verified=${isValid}`
-    );
-
-    validationResults.push({
-      recordName: record.recordName,
-      recordType: record.recordType,
-      isValid: isValid,
-    });
-
-    if (!isValid) allValid = false;
-
-    await Prisma.dNSRecord.update({
-      where: { id: record.id },
-      data: { isVerified: isValid },
-    });
-  }
-
-  // SendGrid validation
-  let sendgridValidation = { isValid: true, details: [] };
-  if (domain.sendgridDomainId) {
-    const sendgridRes = await validateDomain(domain.sendgridDomainId);
-
-    if (sendgridRes?.validation_results) {
-      const { dkim1, dkim2, mail_cname } = sendgridRes.validation_results;
-      const sendgridResults = [
-        { key: "s1._domainkey", result: dkim1, name: "DKIM 1" },
-        { key: "s2._domainkey", result: dkim2, name: "DKIM 2" },
-        { key: "em", result: mail_cname, name: "Mail CNAME" },
-      ];
+  for (const domain of domains) {
+    try {
+      let allValid = true;
 
       for (const record of domain.dnsRecords) {
-        const matching = sendgridResults.find((sg) =>
-          record.recordName.includes(sg.key)
-        );
-        if (matching) {
-          const isValid = matching.result.valid;
-          sendgridValidation.details.push({
-            record: matching.name,
-            isValid: isValid,
-            message: isValid ? "Valid" : matching.result.reason || "Invalid",
-          });
+        const isValid = await verifyDnsRecord(record, domain.name);
 
-          if (!isValid) {
-            sendgridValidation.isValid = false;
-            allValid = false;
-          }
+        await Prisma.dNSRecord.update({
+          where: { id: record.id },
+          data: { isVerified: isValid },
+        });
 
-          await Prisma.dNSRecord.update({
-            where: { id: record.id },
-            data: { isVerified: isValid },
-          });
-        }
+        if (!isValid) allValid = false;
       }
+
+      await Prisma.domain.update({
+        where: { id: domain.id },
+        data: {
+          isVerified: allValid,
+          status: allValid ? "VERIFIED" : "PENDING",
+          lastVerificationAttempt: new Date(),
+        },
+      });
+
+      console.log(
+        `✅ Domain ${domain.name} verification status: ${allValid ? "VERIFIED" : "PENDING"}`
+      );
+    } catch (err) {
+      console.error(`❌ Error verifying domain ${domain.name}:`, err.message);
     }
-  } else {
-    console.warn(`No sendgridDomainId found for domain ${domain.id}`);
-    sendgridValidation.details.push({
-      record: "SendGrid",
-      isValid: false,
-      message: "SendGrid domain not configured",
-    });
-    allValid = false;
   }
-
-  // Update domain verification status and timestamp
-  const domainStatus = allValid ? "VERIFIED" : "PENDING";
-  const domainVerified = allValid;
-
-  await Prisma.domain.update({
-    where: { id: domain.id },
-    data: {
-      status: domainStatus,
-      isVerified: domainVerified,
-      // lastVerificationAttempt: new Date()
-    },
-  });
-
-  // Prepare response
-  if (allValid) {
-    return res.status(200).json(
-      new ApiResponse(200, "Domain successfully verified!", {
-        domainVerified: true,
-        validationResults: validationResults,
-        sendgridValidation: sendgridValidation,
-      })
-    );
-  } else {
-    return res.status(400).json(
-      new ApiResponse(
-        400,
-        "Domain verification failed. Please check your DNS records and try again after 24 hours.",
-        {
-          domainVerified: false,
-          validationResults: validationResults,
-          sendgridValidation: sendgridValidation,
-          nextAttemptAllowed: new Date(
-            Date.now() + 24 * 60 * 60 * 1000
-          ).toISOString(),
-          message:
-            "DNS changes may take up to 24 hours to propagate. Please wait before trying again.",
-        }
-      )
-    );
-  }
-});
+}
 
 export const getDomains = asyncHandler(async (req, res) => {
   const userId = req.user?.id;
