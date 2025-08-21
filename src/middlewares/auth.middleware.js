@@ -60,8 +60,7 @@ const requireAuth = asyncHandler(async (req, res, next) => {
 
       return next();
     }
-
-    return ApiError.send(res, 401, "User or mailbox not found");
+    return ApiError.send(res, 401, "You are not authorized. Please login.");
   } catch (error) {
     return ApiError.send(res, 401, "Invalid or expired access token");
   }
