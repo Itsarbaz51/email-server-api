@@ -582,7 +582,7 @@ export const getAllData = asyncHandler(async (req, res) => {
           select: { id: true, emailAddress: true },
         },
         subscriptions: {
-          orderBy: { createdAt: "desc" },
+          orderBy: { startDate: "desc" },
           take: 1, // last subscription only
         },
         _count: {
