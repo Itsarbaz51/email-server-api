@@ -476,9 +476,8 @@ const resetPassword = asyncHandler(async (req, res) => {
   }
 });
 
-// ====================== super admin ==========================
+// ====================== super admin (no query params) ==========================
 export const allAdmins = asyncHandler(async (req, res) => {
-  // ---- Authz ----
   const superAdminId = req.user?.id;
   if (!superAdminId) return ApiError.send(res, 401, "Unauthorized user");
   if (req.user.role !== "SUPER_ADMIN") {
@@ -489,127 +488,16 @@ export const allAdmins = asyncHandler(async (req, res) => {
     );
   }
 
-  // ---- Query params ----
-  const page = Math.max(parseInt((req.query.page ?? "1").toString(), 10), 1);
-  const limit = Math.min(
-    Math.max(parseInt((req.query.limit ?? "20").toString(), 10), 1),
-    100
-  );
-  const skip = (page - 1) * limit;
+  const admins = await Prisma.user.findMany({
+    where: { role: "ADMIN" },
+    orderBy: { createdAt: "desc" },
+  });
 
-  const search = (req.query.search ?? "").toString().trim();
-
-  // status => isActive
-  const statusParam = (req.query.status ?? "").toString().toUpperCase();
-  const statusFilter =
-    statusParam === "ACTIVE"
-      ? true
-      : statusParam === "INACTIVE"
-        ? false
-        : undefined;
-
-  // authorized => isAuthorized
-  const authorizedParam = (req.query.authorized ?? "").toString().toLowerCase();
-  const authorizedFilter =
-    authorizedParam === "true"
-      ? true
-      : authorizedParam === "false"
-        ? false
-        : undefined;
-
-  const sortWhitelist = [
-    "createdAt",
-    "updatedAt",
-    "name",
-    "email",
-    "phone",
-    "role",
-  ];
-  const sortBy = sortWhitelist.includes((req.query.sortBy ?? "").toString())
-    ? req.query.sortBy.toString()
-    : "createdAt";
-  const sortOrder =
-    (req.query.sortOrder ?? "desc").toString().toLowerCase() === "asc"
-      ? "asc"
-      : "desc";
-
-  const dateFrom = req.query.dateFrom
-    ? new Date(req.query.dateFrom.toString())
-    : undefined;
-  const dateTo = req.query.dateTo
-    ? new Date(req.query.dateTo.toString())
-    : undefined;
-
-  // ---- Prisma where ----
-  const where = {
-    role: "ADMIN",
-    ...(typeof statusFilter === "boolean" ? { isActive: statusFilter } : {}),
-    ...(typeof authorizedFilter === "boolean"
-      ? { isAuthorized: authorizedFilter }
-      : {}),
-    ...(search
-      ? {
-          OR: [
-            { name: { contains: search, mode: "insensitive" } },
-            { email: { contains: search, mode: "insensitive" } },
-            { phone: { contains: search, mode: "insensitive" } },
-          ],
-        }
-      : {}),
-    ...(dateFrom || dateTo
-      ? {
-          createdAt: {
-            ...(dateFrom ? { gte: dateFrom } : {}),
-            ...(dateTo ? { lte: dateTo } : {}),
-          },
-        }
-      : {}),
-  };
-
-  // ---- Query DB ----
-  const [total, admins] = await Promise.all([
-    Prisma.user.count({ where }),
-    Prisma.user.findMany({
-      where,
-      orderBy: { [sortBy]: sortOrder },
-      skip,
-      take: limit,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        isAuthorized: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true,
-        // password not selected
-      },
-    }),
-  ]);
-
-  const totalPages = Math.ceil(total / limit);
+  const total = admins.length;
 
   return res.status(200).json(
     new ApiResponse(200, "All admins fetched successfully", {
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNextPage: page < totalPages,
-        hasPrevPage: page > 1,
-        sortBy,
-        sortOrder,
-      },
-      filters: {
-        search: search || null,
-        status: statusParam || null, // ACTIVE / INACTIVE
-        authorized: authorizedParam || null, // "true" / "false"
-        dateFrom: dateFrom ? dateFrom.toISOString() : null,
-        dateTo: dateTo ? dateTo.toISOString() : null,
-      },
+      meta: { total },
       data: admins,
     })
   );
