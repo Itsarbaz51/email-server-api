@@ -524,7 +524,7 @@ export const toggleAdminStatus = asyncHandler(async (req, res) => {
     return ApiError.send(res, 400, "You cannot update your own status");
   }
 
-  const target = await prisma.user.findUnique({
+  const target = await Prisma.user.findUnique({
     where: { id: userId },
     select: {
       id: true,
