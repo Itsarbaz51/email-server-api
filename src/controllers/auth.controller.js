@@ -579,7 +579,7 @@ export const getAllData = asyncHandler(async (req, res) => {
           select: { id: true, name: true },
         },
         mailboxes: {
-          select: { id: true, email: true },
+          select: { id: true, emailAddress: true },
         },
         subscriptions: {
           orderBy: { createdAt: "desc" },
