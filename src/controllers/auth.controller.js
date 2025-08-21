@@ -570,7 +570,7 @@ export const getAllData = asyncHandler(async (req, res) => {
     orderBy: { createdAt: "desc" },
     include: {
       domains: true,
-      mailboxs: true,
+      mailboxes: true,
       subscriptions: true,
       _count: {
         select: {
