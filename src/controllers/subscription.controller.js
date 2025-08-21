@@ -7,7 +7,6 @@ import axios from "axios";
 import { generateInvoiceId } from "../utils/lib.js";
 import crypto from "crypto";
 
-
 const MAX_INT = Number.MAX_SAFE_INTEGER;
 
 const razorpay = new Razorpay({
@@ -288,6 +287,7 @@ export const getCurrentSubscription = asyncHandler(async (req, res) => {
 
   const subscription = await Prisma.subscription.findFirst({
     where: { userId, isActive: true },
+    include: { invoice: true },
   });
 
   if (!subscription) {
