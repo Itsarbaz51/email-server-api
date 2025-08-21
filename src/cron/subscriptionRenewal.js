@@ -4,13 +4,11 @@ import Prisma from "../db/db.js";
 import { generateInvoiceId } from "../utils/lib.js";
 
 cron.schedule("0 0 * * *", async () => {
-  // 🔄 This will run daily at midnight instead of every second
   console.log("⏰ Cron started - Checking subscriptions...");
 
   try {
     const today = new Date();
 
-    // Find all active subscriptions ending today or earlier
     const expiringSubs = await Prisma.subscription.findMany({
       where: {
         endDate: { lte: today },
@@ -25,22 +23,19 @@ cron.schedule("0 0 * * *", async () => {
 
     for (const sub of expiringSubs) {
       try {
-        // 💰 Calculate amount based on plan
         let amount = 0;
         if (sub.plan === "BASIC") amount = 5 * 87;
         else if (sub.plan === "PREMIUM") amount = 15 * 87;
 
-        // 📄 Generate invoice
         const invoice = await Prisma.invoice.create({
           data: {
             invoiceId: generateInvoiceId(),
             subscriptionId: sub.id,
             amount,
-            status: "PENDING", // Payment gateway webhook ke baad "PAID" hoga
+            status: "PENDING",
           },
         });
 
-        // 📆 Calculate new billing dates
         const nextStartDate = new Date(sub.endDate);
         const nextEndDate = new Date(nextStartDate);
 
@@ -50,7 +45,6 @@ cron.schedule("0 0 * * *", async () => {
           nextEndDate.setFullYear(nextEndDate.getFullYear() + 1);
         }
 
-        // 🔄 Update subscription
         await Prisma.subscription.update({
           where: { id: sub.id },
           data: {
