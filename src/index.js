@@ -17,8 +17,9 @@ dotenv.config({ path: "./.env" });
     } catch (error) {
       console.error("❌ DB connection error:", error);
     }
-    // Har 30 mins me chalega
-    cron.schedule("* * * * * *", autoVerifyDomains);
+
+    //  30 mins run for dns records verify
+    cron.schedule("*/30 * * * *", autoVerifyDomains);
     console.log("⏰ Cron job scheduled: Domain verification every 30 minutes");
 
     incomingServer.listen(25, "0.0.0.0", () => {
