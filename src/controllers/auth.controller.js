@@ -565,35 +565,63 @@ export const getAllData = asyncHandler(async (req, res) => {
     return ApiError.send(res, 403, "Forbidden: Only superadmin can access this");
   }
 
-  const admins = await Prisma.user.findMany({
-    where: { role: "ADMIN" },
-    orderBy: { createdAt: "desc" },
-    include: {
-      domains: true,
-      mailboxes: true,
-      subscriptions: true,
-      _count: {
-        select: {
-          sentEmails: true,
-          receivedEmails: true,
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = parseInt(req.query.limit as string) || 10;
+
+  const [admins, totalAdmins] = await Promise.all([
+    Prisma.user.findMany({
+      where: { role: "ADMIN" },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * limit,
+      take: limit,
+      include: {
+        domains: {
+          select: { id: true, name: true },
+        },
+        mailboxes: {
+          select: { id: true, email: true },
+        },
+        subscriptions: {
+          orderBy: { createdAt: "desc" },
+          take: 1, // last subscription only
+        },
+        _count: {
+          select: {
+            sentEmails: true,
+            receivedEmails: true,
+          },
         },
       },
-    },
-  });
+    }),
+    Prisma.user.count({ where: { role: "ADMIN" } }),
+  ]);
 
-  if (!admins) return ApiError.send(res, 404, "Admin not found")
+  if (!admins || admins.length === 0)
+    return ApiError.send(res, 404, "Admins not found");
 
   const formatted = admins.map((admin) => ({
-    ...admin,
+    id: admin.id,
+    name: admin.name,
+    email: admin.email,
+    role: admin.role,
+    createdAt: admin.createdAt,
+    totalDomains: admin.domains.length,
+    domainNames: admin.domains.map((d) => d.name),
+    totalMailboxes: admin.mailboxes.length,
+    mailboxNames: admin.mailboxes.map((m) => m.email),
     totalSentEmails: admin._count.sentEmails,
     totalReceivedEmails: admin._count.receivedEmails,
-    _count: undefined,
-  }))
+    lastSubscription: admin.subscriptions[0] || null,
+  }));
 
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, "All admins fetched successfully", formatted));
+  return res.status(200).json(
+    new ApiResponse(200, "Admins fetched successfully", {
+      totalAdmins,
+      page,
+      limit,
+      admins: formatted,
+    })
+  );
 });
 
 export {
