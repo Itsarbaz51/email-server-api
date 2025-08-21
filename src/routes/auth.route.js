@@ -31,8 +31,8 @@ router.post("/change-password", requireAuth, changePassword);
 // ================= super admin ========================
 
 router.get("/all-admins", requireAuth, requireRole(["SUPER_ADMIN"]), allAdmins);
-router.put(
-  "admin-toggle/:userId",
+router.patch(
+  "/admin-toggle/:userId",
   requireAuth,
   requireRole(["SUPER_ADMIN"]),
   toggleAdminStatus
