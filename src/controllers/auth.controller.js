@@ -608,7 +608,7 @@ export const getAllData = asyncHandler(async (req, res) => {
     totalDomains: admin.domains.length,
     domainNames: admin.domains.map((d) => d.name),
     totalMailboxes: admin.mailboxes.length,
-    mailboxNames: admin.mailboxes.map((m) => m.email),
+    mailboxNames: admin.mailboxes.map((m) => m.emailAddress),
     totalSentEmails: admin._count.sentEmails,
     totalReceivedEmails: admin._count.receivedEmails,
     lastSubscription: admin.subscriptions[0] || null,
