@@ -19,7 +19,7 @@ cron.schedule("* * * * *", async () => {
       where: {
         id: { in: expiringSubs.map((sub) => sub.id) },
       },
-      data: { isActive: false },
+      data: { paymentStatus: "PENDING" },
     });
 
     if (expiringSubs.length === 0) {

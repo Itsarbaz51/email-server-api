@@ -207,7 +207,7 @@ export const createOrRenewSubscription = asyncHandler(async (req, res) => {
     },
   });
 
-  if (pendingInvoice && paymentStatus === "SUCCESS") {
+  if (pendingInvoice && paymentStatus === "SUCCESS" && plan !== "FREE" && razorpayStatus === "captured") {
     await Prisma.invoice.update({
       where: { id: pendingInvoice.id },
       data: { status: "PAID" },
