@@ -321,7 +321,7 @@ const updateProfile = asyncHandler(async (req, res) => {
 // get current user
 const getCurrentUser = asyncHandler(async (req, res) => {
   const userId = req.user?.id;
-  console.log(userId);
+  console.log("userId", userId);
   const mailboxId = req.mailbox?.id;
   console.log("mailboxId", mailboxId);
 

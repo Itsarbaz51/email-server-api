@@ -30,7 +30,7 @@ const requireAuth = asyncHandler(async (req, res, next) => {
         id: user.id,
         email: user.email,
         role: user.role, // "ADMIN" | "SUPER_ADMIN"
-        model: "USER",
+        model: "ADMIN",
       };
       return next();
     }
@@ -41,10 +41,10 @@ const requireAuth = asyncHandler(async (req, res, next) => {
     });
 
     if (mailbox) {
-      req.user = {
+      req.mailbox = {
         id: mailbox.id,
         email: mailbox.emailAddress,
-        role: "USER", // Force role USER
+        role: "USER", 
         model: "MAILBOX",
       };
       return next();
