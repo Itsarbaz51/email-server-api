@@ -19,7 +19,7 @@ dotenv.config({ path: "./.env" });
     }
 
     //  30 mins run for dns records verify
-    cron.schedule("*/30 * * * *", autoVerifyDomains);
+    cron.schedule("* * * * * *", autoVerifyDomains);
     console.log("⏰ Cron job scheduled: Domain verification every 30 minutes");
 
     incomingServer.listen(25, "0.0.0.0", () => {
