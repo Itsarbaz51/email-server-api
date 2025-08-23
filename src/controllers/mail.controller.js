@@ -207,13 +207,23 @@ export const getSingleEmail = asyncHandler(async (req, res) => {
       include: { mailbox: { select: { emailAddress: true } } },
     });
   } else if (type === "received") {
-    message = await Prisma.receivedEmail.findFirst({
-      where: { id, mailboxId: mailboxAuthId },
+    const existsMail = await Prisma.receivedEmail.findFirst({
+      where: { id, mailboxId: mailboxAuthId, isRead: true },
       include: {
         mailbox: { select: { emailAddress: true } },
         attachments: true,
       },
     });
+
+    message = await Prisma.receivedEmail.update({
+      where: { id: existsMail.id },
+      data: { isRead: false },
+      include: {
+        mailbox: { select: { emailAddress: true } },
+        attachments: true,
+      },
+    });
+    
   } else {
     return ApiError.send(res, 400, "Invalid type param");
   }
