@@ -5,12 +5,15 @@ import Prisma from "../db/db.js";
 import { uploadToS3, generateS3Key } from "../services/s3Service.js";
 import { verifySubscription } from "../middlewares/subscription.middleware.js";
 
-const MAX_EMAIL_SIZE = Number(process.env.MAX_EMAIL_SIZE_BYTES) || 25 * 1024 * 1024; // 25MB
+const MAX_EMAIL_SIZE =
+  Number(process.env.MAX_EMAIL_SIZE_BYTES) || 25 * 1024 * 1024; // 25MB
 const EMAIL_BODY_BUCKET = process.env.EMAIL_BODY_BUCKET;
 const ATTACHMENTS_BUCKET = process.env.ATTACHMENTS_BUCKET;
 
 if (!EMAIL_BODY_BUCKET) {
-  console.warn("⚠️ EMAIL_BODY_BUCKET not set — body uploads will fail or fallback to inline storage.");
+  console.warn(
+    "⚠️ EMAIL_BODY_BUCKET not set — body uploads will fail or fallback to inline storage."
+  );
 }
 if (!ATTACHMENTS_BUCKET) {
   console.warn("⚠️ ATTACHMENTS_BUCKET not set — attachment uploads will fail.");
@@ -26,7 +29,6 @@ function formatFileSize(bytes) {
  * Local subscription check for SMTP context.
  * Throws ApiError on failure.
  */
-
 
 export const incomingServer = new SMTPServer({
   authOptional: true,
@@ -53,7 +55,8 @@ export const incomingServer = new SMTPServer({
         select: { id: true, userId: true },
       });
 
-      if (!mailbox) return callback(new Error("Mailbox not found or domain unverified"));
+      if (!mailbox)
+        return callback(new Error("Mailbox not found or domain unverified"));
 
       // subscription check (throws ApiError if invalid)
       await verifySubscription(mailbox.userId, "receiveMail");
@@ -85,7 +88,8 @@ export const incomingServer = new SMTPServer({
     stream.on("end", async () => {
       try {
         const raw = Buffer.concat(chunks);
-        if (!raw || raw.length === 0) return callback(new Error("Empty email payload"));
+        if (!raw || raw.length === 0)
+          return callback(new Error("Empty email payload"));
 
         const parsed = await simpleParser(raw);
 
@@ -95,17 +99,27 @@ export const incomingServer = new SMTPServer({
           null;
         if (!fromAddress) return callback(new Error("Missing sender address"));
 
-        const recipients = (session.envelope?.rcptTo || []).map((r) => (r.address || "").toLowerCase());
+        const recipients = (session.envelope?.rcptTo || []).map((r) =>
+          (r.address || "").toLowerCase()
+        );
         if (!recipients.length) return callback(new Error("No recipients"));
 
         for (const toAddress of recipients) {
           try {
             const mailbox = await Prisma.mailbox.findFirst({
-              where: { emailAddress: toAddress, domain: { status: "VERIFIED" } },
-              include: { user: { select: { id: true, email: true } }, domain: { select: { name: true } } },
+              where: {
+                emailAddress: toAddress,
+                domain: { status: "VERIFIED" },
+              },
+              include: {
+                user: { select: { id: true, email: true } },
+                domain: { select: { name: true } },
+              },
             });
             if (!mailbox) {
-              console.log(`📭 Skip recipient (not found / domain unverified): ${toAddress}`);
+              console.log(
+                `📭 Skip recipient (not found / domain unverified): ${toAddress}`
+              );
               continue;
             }
 
@@ -124,8 +138,16 @@ export const incomingServer = new SMTPServer({
                 contentType: "text/html",
               });
             } catch (s3Err) {
-              console.warn("S3 body upload failed, storing inline body:", s3Err?.message || s3Err);
-              return ApiError.send(res, 500, "Failed to store email body smtp", bodyReference);
+              console.warn(
+                "S3 body upload failed, storing inline body:",
+                s3Err?.message || s3Err
+              );
+              return ApiError.send(
+                res,
+                500,
+                "Failed to store email body smtp",
+                bodyReference
+              );
             }
 
             // Create received email record
@@ -136,7 +158,9 @@ export const incomingServer = new SMTPServer({
                 fromEmail: fromAddress,
                 subject: parsed.subject || "(No Subject)",
                 body: bodyReference,
+                isRead: true,
                 messageId: parsed.messageId || null,
+                status: "RECEIVED",
                 receivedAt: new Date(),
               },
             });
@@ -169,17 +193,27 @@ export const incomingServer = new SMTPServer({
                     },
                   });
                 } catch (attErr) {
-                  console.error(`❌ Attachment error for ${mailbox.id}:`, attErr?.message || attErr);
+                  console.error(
+                    `❌ Attachment error for ${mailbox.id}:`,
+                    attErr?.message || attErr
+                  );
                   // continue attachments
                 }
               }
             } else if (parsed.attachments?.length && !ATTACHMENTS_BUCKET) {
-              console.warn("Attachments present but ATTACHMENTS_BUCKET not configured — skipping attachments upload.");
+              console.warn(
+                "Attachments present but ATTACHMENTS_BUCKET not configured — skipping attachments upload."
+              );
             }
 
-            console.log(`✅ Stored received email id=${received.id} for ${toAddress}`);
+            console.log(
+              `✅ Stored received email id=${received.id} for ${toAddress}`
+            );
           } catch (recipientErr) {
-            console.error(`❌ Failed processing recipient ${toAddress}:`, recipientErr?.message || recipientErr);
+            console.error(
+              `❌ Failed processing recipient ${toAddress}:`,
+              recipientErr?.message || recipientErr
+            );
             // continue with other recipients
           }
         }

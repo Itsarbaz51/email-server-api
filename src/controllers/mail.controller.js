@@ -214,6 +214,12 @@ export const getSingleEmail = asyncHandler(async (req, res) => {
         attachments: true,
       },
     });
+
+    await Prisma.receivedEmail.update({
+      where: { id: mailboxAuthId, isRead: true },
+      data: { isRead: false },
+    });
+    
   } else {
     return ApiError.send(res, 400, "Invalid type param");
   }
@@ -767,7 +773,7 @@ export const getEmailBody = asyncHandler(async (req, res) => {
         emailRecord.attachments.map(async (att) => {
           const url = await getPresignedUrl(
             process.env.ATTACHMENTS_BUCKET,
-             att.s3Key,
+            att.s3Key,
             300
           );
           return {
