@@ -15,6 +15,13 @@ cron.schedule("* * * * *", async () => {
       },
     });
 
+    await Prisma.subscription.updateMany({
+      where: {
+        id: { in: expiringSubs.map((sub) => sub.id) },
+      },
+      data: { isActive: false },
+    });
+
     if (expiringSubs.length === 0) {
       console.log("✅ No subscriptions expiring today.");
       return;

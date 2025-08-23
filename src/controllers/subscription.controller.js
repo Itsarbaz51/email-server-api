@@ -200,20 +200,33 @@ export const createOrRenewSubscription = asyncHandler(async (req, res) => {
     ? await Prisma.subscription.update({ where: { id: existingSub.id }, data })
     : await Prisma.subscription.create({ data });
 
-  // create invoice
-  await Prisma.invoice.create({
-    data: {
-      invoiceId: generateInvoiceId(),
+  const pendingInvoice = await Prisma.invoice.findFirst({
+    where: {
       subscriptionId: subscription.id,
-      amount:
-        plan === "FREE"
-          ? 0
-          : billingCycle === "MONTHLY"
-            ? planPricesUSD[plan] * 87
-            : planPricesUSD[plan] * 87 * 12,
-      status: paymentStatus === "SUCCESS" ? "PAID" : "PENDING",
+      status: "PENDING",
     },
   });
+
+  if (pendingInvoice && paymentStatus === "SUCCESS") {
+    await Prisma.invoice.update({
+      where: { id: pendingInvoice.id },
+      data: { status: "PAID" },
+    });
+  } else {
+    await Prisma.invoice.create({
+      data: {
+        invoiceId: generateInvoiceId(),
+        subscriptionId: subscription.id,
+        amount:
+          plan === "FREE"
+            ? 0
+            : billingCycle === "MONTHLY"
+              ? planPricesUSD[plan] * 87
+              : planPricesUSD[plan] * 87 * 12,
+        status: paymentStatus === "SUCCESS" ? "PAID" : "PENDING",
+      },
+    });
+  }
 
   return res
     .status(200)
