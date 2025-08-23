@@ -340,6 +340,9 @@ const getCurrentUser = asyncHandler(async (req, res) => {
         phone: true,
         createdAt: true,
       },
+      include: {
+        receivedEmails: { select: { id: true, isRead: true } },
+      },
     });
 
     if (!user) return ApiError.send(res, 404, "User not found");
@@ -562,7 +565,11 @@ export const getAllData = asyncHandler(async (req, res) => {
   if (!superAdminId) return ApiError.send(res, 401, "Unauthorized user");
 
   if (req.user.role !== "SUPER_ADMIN") {
-    return ApiError.send(res, 403, "Forbidden: Only superadmin can access this");
+    return ApiError.send(
+      res,
+      403,
+      "Forbidden: Only superadmin can access this"
+    );
   }
 
   const page = parseInt(String(req.query.page)) || 1;
