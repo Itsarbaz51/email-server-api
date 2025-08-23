@@ -201,6 +201,7 @@ export const getSingleEmail = asyncHandler(async (req, res) => {
   if (!mailboxAuthId) return ApiError.send(res, 401, "Auth required");
 
   let message;
+
   if (type === "sent") {
     message = await Prisma.sentEmail.findFirst({
       where: { id, mailboxId: mailboxAuthId },
@@ -213,10 +214,11 @@ export const getSingleEmail = asyncHandler(async (req, res) => {
 
     if (!existsMail) {
       console.log("Email not found or already unread.");
-      return;
+      return ApiError.send(res, 404, "Message not found");
     }
 
-    const message = await Prisma.receivedEmail.update({
+    // ❌ FIXED: Don't redeclare 'message' — just assign to the outer one
+    message = await Prisma.receivedEmail.update({
       where: { id: existsMail.id },
       data: { isRead: false },
       include: {
