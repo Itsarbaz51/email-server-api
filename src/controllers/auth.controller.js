@@ -339,10 +339,7 @@ const getCurrentUser = asyncHandler(async (req, res) => {
         isActive: true,
         phone: true,
         createdAt: true,
-      },
-      include: {
-        receivedEmails: { select: { id: true, isRead: true } },
-      },
+      }
     });
 
     if (!user) return ApiError.send(res, 404, "User not found");
@@ -353,9 +350,10 @@ const getCurrentUser = asyncHandler(async (req, res) => {
   if (!userId && mailboxId) {
     const mailboxExits = await Prisma.mailbox.findUnique({
       where: { id: mailboxId },
+      include: {
+        receivedEmails: { select: { id: true, isRead: true } },
+      },
     });
-
-    console.log("mailboxExits", mailboxExits);
 
     if (!mailboxExits) return ApiError.send(res, 404, "mailbox user not found");
     const { password: _, ...mailboxSafe } = mailboxExits;
