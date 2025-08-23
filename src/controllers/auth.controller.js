@@ -320,15 +320,15 @@ const updateProfile = asyncHandler(async (req, res) => {
 
 // get current user
 const getCurrentUser = asyncHandler(async (req, res) => {
-  const userId = req?.user?.id;
+  const userId = req.user?.id;
   console.log(userId);
-  const mailboxId = req?.mailbox?.id;
+  const mailboxId = req.mailbox?.id;
   console.log("mailboxId", mailboxId);
 
   if (!userId && !mailboxId)
     return ApiError.send(res, 401, "Not authenticated");
 
-  if (userId) {
+  if (userId && !mailboxId) {
     const user = await Prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -347,7 +347,7 @@ const getCurrentUser = asyncHandler(async (req, res) => {
     return res.status(200).json(new ApiResponse(200, "OK", { user: user }));
   }
 
-  if (mailboxId) {
+  if (!userId && mailboxId) {
     const mailboxExits = await Prisma.mailbox.findUnique({
       where: { id: mailboxId },
     });
