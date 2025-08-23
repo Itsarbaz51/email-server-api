@@ -215,11 +215,12 @@ export const getSingleEmail = asyncHandler(async (req, res) => {
       },
     });
 
-    await Prisma.receivedEmail.update({
-      where: { id: mailboxAuthId, isRead: true },
-      data: { isRead: false },
-    });
-    
+    if (message) {
+      await Prisma.receivedEmail.update({
+        where: { id: message.id },
+        data: { isRead: false },
+      });
+    }
   } else {
     return ApiError.send(res, 400, "Invalid type param");
   }
