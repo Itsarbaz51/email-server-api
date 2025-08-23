@@ -398,29 +398,32 @@ export const WebhookRazorpay = asyncHandler(async (req, res) => {
   }
 });
 
-
-
-
-
-
-
 // ================================== suer admin ===============================
 
 export const allSubscriptions = asyncHandler(async (req, res) => {
-  // ---- Auth ----
   const superAdminId = req.user?.id;
   if (!superAdminId) return ApiError.send(res, 401, "Unauthorized user");
 
   if (req.user.role !== "SUPER_ADMIN") {
-    return ApiError.send(res, 403, "Forbidden: Only superadmin can access this");
+    return ApiError.send(
+      res,
+      403,
+      "Forbidden: Only superadmin can access this"
+    );
   }
 
   const subscriptions = await Prisma.subscription.findMany({
     orderBy: { createdAt: "desc" },
-    include: { user: true }
+    include: { user: true },
   });
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "All subscriptions fetched successfully", subscriptions));
+    .json(
+      new ApiResponse(
+        200,
+        "All subscriptions fetched successfully",
+        subscriptions
+      )
+    );
 });
