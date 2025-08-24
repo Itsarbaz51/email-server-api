@@ -29,7 +29,10 @@ const planLimits = {
 export const verifySubscription = (action) =>
   asyncHandler(async (req, res, next) => {
     const userId = req.user?.id;
+    console.log(req.mailbox);
     const mailboxId = req.mailbox?.id;
+    console.log(mailboxId);
+
 
     if (!userId || !mailboxId) {
       return ApiError.send(res, 401, "Unauthorized: User not found");
