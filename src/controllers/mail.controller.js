@@ -821,3 +821,21 @@ export const getEmailBody = asyncHandler(async (req, res) => {
     return ApiError.send(res, 500, "Failed to fetch email body");
   }
 });
+
+
+////////////////////////// sidebar inbox count ///////////////////////////////////
+export const allNewReceivedEmailCount = asyncHandler(async (req, res) => {
+  const mailboxId = req.mailbox?.id;
+
+  if (!mailboxId) {
+    return ApiError.send(res, 401, "Unauthorized user");
+  }
+
+  const newMailsReceived = await Prisma.receivedEmail.count({
+    where: { mailboxId, isRead: true }
+  });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "received count fetched", { count: newMailsReceived }));
+});
