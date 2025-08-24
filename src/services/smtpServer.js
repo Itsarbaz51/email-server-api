@@ -179,14 +179,15 @@ export const incomingServer = new SMTPServer({
                     body: att.content,
                     contentType: att.contentType || "application/octet-stream",
                   });
-
+                  
+                  console.log("att", att);
                   await Prisma.attachment.create({
                     data: {
                       mailboxId: mailbox.id,
                       userId: mailbox.userId,
                       receivedEmailId: received.id,
                       fileName: clean,
-                      fileSize: formatFileSize(file.size),
+                      fileSize: formatFileSize(att.size || att.content?.length || 0),
                       mimeType: att.contentType || "application/octet-stream",
                       s3Key,
                       s3Bucket: ATTACHMENTS_BUCKET,
