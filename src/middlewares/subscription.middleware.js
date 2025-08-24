@@ -28,13 +28,9 @@ const planLimits = {
 
 export const verifySubscription = (action) =>
   asyncHandler(async (req, res, next) => {
-    const userId = req.user?.id;
-    console.log(req.mailbox);
-    const mailboxId = req.mailbox?.id;
-    console.log(mailboxId);
+    const userId = req.user?.id || req.mailbox?.id;
 
-
-    if (!userId || !mailboxId) {
+    if (!userId) {
       return ApiError.send(res, 401, "Unauthorized: User not found");
     }
 
@@ -113,7 +109,7 @@ export const verifySubscription = (action) =>
 
     if (action === "sendMail") {
       const count = await Prisma.sentEmail.count({
-        where: { mailboxId },
+        where: { mailboxId: userId },
       });
 
       if (count >= limits.maxSentEmails) {
@@ -127,7 +123,7 @@ export const verifySubscription = (action) =>
 
     if (action === "receiveMail") {
       const count = await Prisma.receivedEmail.count({
-        where: { mailboxId },
+        where: { mailboxId: userId },
       });
 
       if (count >= limits.maxReceivedEmails) {
