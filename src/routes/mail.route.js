@@ -2,6 +2,7 @@
 import express from "express";
 import {
   addStarred,
+  allNewReceivedEmailCount,
   bulkMailDelete,
   deleteMail,
   getAllMails,
@@ -49,5 +50,9 @@ router.get("/get-all-starred", getAllStarred);
 
 
 router.get("/body/:type/:emailId", getEmailBody);
+
+////////////////////////// sidebar count //////////////////////////
+
+router.get("/new-received-count", allNewReceivedEmailCount);
 
 export default router;
