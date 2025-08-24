@@ -1,3 +1,31 @@
+import Prisma from "../db/db.js";
+import { ApiError } from "../utils/ApiError.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
+
+const planLimits = {
+  FREE: {
+    maxDomains: 1,
+    maxMailboxes: 1,
+    maxSentEmails: 50,
+    maxReceivedEmails: 500,
+    allowedStorageMB: 1024,
+  },
+  BASIC: {
+    maxDomains: 3,
+    maxMailboxes: 10,
+    maxSentEmails: 1000,
+    maxReceivedEmails: 10000,
+    allowedStorageMB: 10240,
+  },
+  PREMIUM: {
+    maxDomains: 10,
+    maxMailboxes: 50,
+    maxSentEmails: Number.MAX_SAFE_INTEGER,
+    maxReceivedEmails: Number.MAX_SAFE_INTEGER,
+    allowedStorageMB: 51200,
+  },
+};
+
 export const verifySubscription = (action) =>
   asyncHandler(async (req, res, next) => {
     let userId = req.user?.id;
@@ -103,3 +131,4 @@ export const verifySubscription = (action) =>
     // ✅ All checks passed
     return next();
   });
+
