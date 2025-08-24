@@ -91,11 +91,11 @@ export const sendEmail = [
     const sendgridAttachments =
       req.files && req.files.length > 0
         ? req.files.map((file) => ({
-            filename: file.originalname,
-            content: file.buffer.toString("base64"),
-            type: file.mimetype,
-            disposition: "attachment",
-          }))
+          filename: file.originalname,
+          content: file.buffer.toString("base64"),
+          type: file.mimetype,
+          disposition: "attachment",
+        }))
         : [];
 
     // Try sending email
@@ -319,10 +319,15 @@ export const getBySingleMail = asyncHandler(async (req, res) => {
   let type = "sent";
 
   if (!mail) {
-    mail = await Prisma.receivedEmail.findFirst({
-      where: { id, mailboxId },
-      include: { attachments: true, mailbox: true },
+    const existsMail = await Prisma.receivedEmail.findFirst({
+      where: { id, mailboxId, isRead: true },
     });
+
+    mail = await Prisma.receivedEmail.update({
+      where: { id: existsMail.id, isRead: true },
+      data: { isRead: false },
+      include: { attachments: true, mailbox: true },
+    })
     type = "received";
   }
 
