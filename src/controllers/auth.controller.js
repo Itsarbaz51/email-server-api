@@ -626,6 +626,19 @@ export const getAllData = asyncHandler(async (req, res) => {
   );
 });
 
+
+/// lending page
+export const getAllUsers = asyncHandler(async (req, res) => {
+  const totalUsers = await Prisma.user.count({
+    where: { isActive: true },
+  })
+
+  return res.status(200).json(
+    new ApiResponse(200, "All users", totalUsers)
+  );
+});
+
+
 export {
   signup,
   login,
