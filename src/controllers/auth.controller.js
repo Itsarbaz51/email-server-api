@@ -39,7 +39,7 @@ const signup = asyncHandler(async (req, res) => {
 
   const token = jwt.sign(
     { name, email, phone, password: hashedPassword, termsAndConditions },
-    process.env.JWT_SECRET,
+    process.env.ACCESS_TOKEN_SECRET,
     { expiresIn: "2m" }
   );
 
