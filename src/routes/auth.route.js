@@ -13,6 +13,7 @@ import {
   toggleAdminStatus,
   getAllData,
   getAllUsers,
+  verifySignup,
 } from "../controllers/auth.controller.js";
 import { requireAuth, requireRole } from "../middlewares/auth.middleware.js";
 
@@ -20,6 +21,7 @@ const router = express.Router();
 
 // Public
 router.post("/signup", signup);
+router.get("/signup-verify", verifySignup)
 router.post("/login", login);
 router.put("/profile-update", requireAuth, updateProfile);
 router.post("/refresh", refreshAccessToken);

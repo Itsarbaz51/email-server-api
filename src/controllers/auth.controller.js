@@ -20,6 +20,7 @@ const cookieOptions = {
 // sigup public route admin
 const signup = asyncHandler(async (req, res) => {
   const { name, email, phone, password, termsAndConditions } = req.body;
+
   if (
     ![name, email, phone, password, termsAndConditions].every(
       (v) => v && String(v).trim().length > 0
@@ -32,27 +33,83 @@ const signup = asyncHandler(async (req, res) => {
     where: { OR: [{ email }, { phone }] },
   });
 
-  if (exists) return ApiError.send(res, 409, "Email already registered");
+  if (exists) return ApiError.send(res, 409, "User already exists");
 
-  const hashed = await hashPassword(password);
-  if (!hashed) return ApiError.send(res, 500, "Password hashing failed");
+  const hashedPassword = await hashPassword(password);
+
+  const token = jwt.sign(
+    { name, email, phone, password: hashedPassword, termsAndConditions },
+    process.env.JWT_SECRET,
+    { expiresIn: "2m" }
+  );
+
+  const verifyLink = `${process.env.CLIENT_URL}/signup/verify?token=${token}`;
+
+  const transporter = nodemailer.createTransport({
+    host: "smtp.sendgrid.net",
+    port: 587,
+    auth: {
+      user: "apikey",
+      pass: process.env.SENDGRID_API_KEY,
+    },
+  });
+
+  await transporter.sendMail({
+    to: email,
+    from: "no-reply@airmailo.com",
+    subject: "Verify your email",
+    html: `
+      <p>Hello ${name},</p>
+      <p>Click the link below to verify your email and complete your registration:</p>
+      <a href="${verifyLink}">Verify Email</a>
+      <p>This link will expire in 2 minutes.</p>
+    `,
+  });
+
+  return res.status(200).json(
+    new ApiResponse(200, "Verification email sent", {
+      message: "Please check your email to verify your account.",
+    })
+  );
+});
+
+const verifySignup = asyncHandler(async (req, res) => {
+  const { token } = req.query;
+
+  if (!token) return ApiError.send(res, 400, "Token is required");
+
+  let payload;
+  try {
+    payload = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+  } catch (err) {
+    return ApiError.send(res, 401, "Invalid or expired token");
+  }
+
+  const { name, email, phone, password, termsAndConditions } = payload;
+
+  const exists = await Prisma.user.findFirst({
+    where: { OR: [{ email }, { phone }] },
+  });
+
+  if (exists) return ApiError.send(res, 409, "User already exists");
 
   const user = await Prisma.user.create({
     data: {
       name,
       email,
       phone,
-      password: hashed,
+      password,
       role: "ADMIN",
       termsAndConditions,
       isActive: true,
+      isAuthorized: true,
     },
     select: { id: true, name: true, email: true, role: true, createdAt: true },
   });
 
   return res
     .status(201)
-    .json(new ApiResponse(201, "Registered successfully", { user }));
+    .json(new ApiResponse(201, "Account verified and user created", { user }));
 });
 
 // login
@@ -339,7 +396,7 @@ const getCurrentUser = asyncHandler(async (req, res) => {
         isActive: true,
         phone: true,
         createdAt: true,
-      }
+      },
     });
 
     if (!user) return ApiError.send(res, 404, "User not found");
@@ -626,21 +683,18 @@ export const getAllData = asyncHandler(async (req, res) => {
   );
 });
 
-
 /// lending page
 export const getAllUsers = asyncHandler(async (req, res) => {
   const totalUsers = await Prisma.user.count({
     where: { isActive: true },
-  })
+  });
 
-  return res.status(200).json(
-    new ApiResponse(200, "All users", totalUsers)
-  );
+  return res.status(200).json(new ApiResponse(200, "All users", totalUsers));
 });
-
 
 export {
   signup,
+  verifySignup,
   login,
   refreshAccessToken,
   logout,
