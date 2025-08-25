@@ -57,7 +57,7 @@ const signup = asyncHandler(async (req, res) => {
 
   await transporter.sendMail({
     to: email,
-    from: "no-reply@airmailo.com",
+    from: "no-reply@primewebdev.in",
     subject: "Verify your email",
     html: `
       <p>Hello ${name},</p>
