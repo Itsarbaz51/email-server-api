@@ -21,7 +21,7 @@ const router = express.Router();
 
 // Public
 router.post("/signup", signup);
-router.get("/signup-verify", verifySignup)
+router.post("/signup-verify", verifySignup)
 router.post("/login", login);
 router.put("/profile-update", requireAuth, updateProfile);
 router.post("/refresh", refreshAccessToken);
