@@ -68,9 +68,11 @@ export const createContactMessage = asyncHandler(async (req, res) => {
 });
 
 export const getAllContactMessage = asyncHandler(async (req, res) => {
-  const userrole = req.user.role;
+  const userrole = req.user;
+  console.log("userrole", userrole);
+  
 
-  if (userrole !== "SUPER_ADMIN") {
+  if (userrole.role !== "SUPER_ADMIN") {
     return ApiError.send(res, 403, "Access denied. Super Admins only.");
   }
 
