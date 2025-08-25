@@ -76,6 +76,7 @@ const signup = asyncHandler(async (req, res) => {
 
 const verifySignup = asyncHandler(async (req, res) => {
   const { token } = req.query;
+  console.log("token", token);
 
   if (!token) return ApiError.send(res, 400, "Token is required");
 
@@ -85,6 +86,7 @@ const verifySignup = asyncHandler(async (req, res) => {
   } catch (err) {
     return ApiError.send(res, 401, "Invalid or expired token");
   }
+  console.log("payload", payload);
 
   const { name, email, phone, password, termsAndConditions } = payload;
 
@@ -107,6 +109,8 @@ const verifySignup = asyncHandler(async (req, res) => {
     },
     select: { id: true, name: true, email: true, role: true, createdAt: true },
   });
+
+  console.log("user created", user);
 
   return res
     .status(201)
