@@ -1,6 +1,6 @@
-import Prisma from "../db/db";
-import { ApiError } from "../utils/ApiError";
-import { asyncHandler } from "../utils/asyncHandler";
+import Prisma from "../db/db.js";
+import { ApiError } from "../utils/ApiError.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
 export const createTestimonial = asyncHandler(async (req, res) => {
   const { name, designation, company, review, rating } = req.body;

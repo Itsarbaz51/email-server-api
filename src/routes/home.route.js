@@ -2,7 +2,7 @@ import express from "express";
 import {
   createContactMessage,
   createTestimonial,
-} from "../controllers/home.controller";
+} from "../controllers/home.controller.js";
 
 const router = express.Router();
 
