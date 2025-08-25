@@ -44,7 +44,7 @@ const signup = asyncHandler(async (req, res) => {
     { expiresIn: "2m" }
   );
 
-  const verifyLink = `${process.env.CLIENT_URL}/signup/verify?token=${token}`;
+  const verifyLink = `http://localhost:5173/auth/signup-verify?token=${token}`;
 
   const transporter = nodemailer.createTransport({
     host: "smtp.sendgrid.net",
