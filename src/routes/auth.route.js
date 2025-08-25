@@ -12,6 +12,7 @@ import {
   allAdmins,
   toggleAdminStatus,
   getAllData,
+  getAllUsers,
 } from "../controllers/auth.controller.js";
 import { requireAuth, requireRole } from "../middlewares/auth.middleware.js";
 
@@ -44,4 +45,7 @@ router.get(
   requireRole(["SUPER_ADMIN"]),
   getAllData
 );
+
+router.get("/get-users-count", getAllUsers)
+
 export default router;

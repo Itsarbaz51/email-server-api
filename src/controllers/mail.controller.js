@@ -91,11 +91,11 @@ export const sendEmail = [
     const sendgridAttachments =
       req.files && req.files.length > 0
         ? req.files.map((file) => ({
-            filename: file.originalname,
-            content: file.buffer.toString("base64"),
-            type: file.mimetype,
-            disposition: "attachment",
-          }))
+          filename: file.originalname,
+          content: file.buffer.toString("base64"),
+          type: file.mimetype,
+          disposition: "attachment",
+        }))
         : [];
 
     // Try sending email
@@ -307,9 +307,7 @@ export const getBySingleMail = asyncHandler(async (req, res) => {
   if (!id) return ApiError.send(res, 400, "Mail ID is required");
   if (!mailboxId) return ApiError.send(res, 401, "Unauthorized Access");
 
-  if (!Prisma?.sentEmail || !Prisma?.receivedEmail)
-    return ApiError.send(res, 500, "Prisma models not initialized");
-
+  // Check Sent Emails
   let mail = await Prisma.sentEmail.findFirst({
     where: { id, mailboxId },
     include: { attachments: true, mailbox: true },
@@ -317,16 +315,29 @@ export const getBySingleMail = asyncHandler(async (req, res) => {
 
   let type = "sent";
 
+  // If not found in sent, check Received Emails
   if (!mail) {
     mail = await Prisma.receivedEmail.findFirst({
       where: { id, mailboxId },
       include: { attachments: true, mailbox: true },
     });
-    type = "received";
+
+    if (mail) {
+      // Mark as unread (isRead = false)
+      if (mail.isRead) {
+        await Prisma.receivedEmail.update({
+          where: { id: mail.id },
+          data: { isRead: false },
+        });
+        mail.isRead = false; // reflect in response
+      }
+      type = "received";
+    }
   }
 
   if (!mail) return ApiError.send(res, 404, "Mail not found or access denied");
 
+  // Remove sensitive mailbox info
   const { mailbox: senderMailbox, ...mailSafe } = mail;
   const senderSafe = {
     id: senderMailbox?.id,
@@ -340,6 +351,7 @@ export const getBySingleMail = asyncHandler(async (req, res) => {
     data: { ...mailSafe, sender: senderSafe },
   });
 });
+
 
 // delete send or receiced mail
 export const deleteMail = asyncHandler(async (req, res) => {
@@ -807,4 +819,22 @@ export const getEmailBody = asyncHandler(async (req, res) => {
     console.error("Presigned URL generation failed:", err);
     return ApiError.send(res, 500, "Failed to fetch email body");
   }
+});
+
+
+////////////////////////// sidebar inbox count ///////////////////////////////////
+export const allNewReceivedEmailCount = asyncHandler(async (req, res) => {
+  const mailboxId = req.mailbox?.id;
+
+  if (!mailboxId) {
+    return ApiError.send(res, 401, "Unauthorized user");
+  }
+
+  const newMailsReceived = await Prisma.receivedEmail.count({
+    where: { mailboxId, isRead: true }
+  });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "received count fetched", { count: newMailsReceived }));
 });
