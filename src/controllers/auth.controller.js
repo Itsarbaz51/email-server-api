@@ -9,6 +9,7 @@ import {
   generateRefreshToken,
   hashPassword,
 } from "../utils/lib.js";
+import nodemailer from "nodemailer";
 
 const cookieOptions = {
   httpOnly: true,
