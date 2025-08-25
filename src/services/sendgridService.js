@@ -42,7 +42,7 @@ export async function sendViaSendGrid({
     content: [{ type: "text/html", value: html }],
   };
 
-  // ✅ Attachments handling
+  // Attachments handling
   if (attachments.length > 0) {
     data.attachments = attachments.map((att) => ({
       content: att.content, // Base64 encoded

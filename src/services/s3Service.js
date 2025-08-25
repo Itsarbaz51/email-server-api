@@ -1,4 +1,4 @@
-// services/s3Service.js
+
 import { S3Client, PutObjectCommand, HeadBucketCommand, CreateBucketCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { v4 as uuidv4 } from "uuid";
@@ -30,8 +30,8 @@ export async function uploadToS3({ bucket, key, body, contentType }) {
 
   try {
     await s3.send(new PutObjectCommand(params));
-    console.log(`Uploaded to S3: ${bucket}/${key}`);
-    return key; // we return the key for DB storage
+    // console.log(`Uploaded to S3: ${bucket}/${key}`);
+    return key; 
   } catch (error) {
     console.error("S3 Upload Error:", error);
     throw error;
@@ -54,11 +54,11 @@ export function generateS3Key(prefix, filename) {
 export async function ensureBucketExists(bucketName) {
   try {
     await s3.send(new HeadBucketCommand({ Bucket: bucketName }));
-    console.log(`ℹ️ Bucket already exists: ${bucketName}`);
+    // console.log(`Bucket already exists: ${bucketName}`);
   } catch (err) {
     if (err.$metadata?.httpStatusCode === 404) {
       await s3.send(new CreateBucketCommand({ Bucket: bucketName }));
-      console.log(`Created new bucket: ${bucketName}`);
+      // console.log(`Created new bucket: ${bucketName}`);
     } else {
       throw err;
     }

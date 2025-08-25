@@ -360,9 +360,9 @@ export const WebhookRazorpay = asyncHandler(async (req, res) => {
     const event = req.body;
     console.log("Webhook event:", event.event);
 
-    // =============================
-    // ✅ Payment Captured
-    // =============================
+   
+    //  Payment Captured
+   
     if (event.event === "payment.captured") {
       const paymentId = event.payload.payment.entity.id;
 
@@ -377,7 +377,6 @@ export const WebhookRazorpay = asyncHandler(async (req, res) => {
 
         if (invoice) {
           await updateInvoiceStatus(invoice.id, "PAID");
-          console.log("✅ Invoice marked as PAID:", invoice.id);
         }
       }
     }
@@ -399,7 +398,6 @@ export const WebhookRazorpay = asyncHandler(async (req, res) => {
 
         if (invoice) {
           await updateInvoiceStatus(invoice.id, "FAILED");
-          console.log("❌ Invoice marked as FAILED:", invoice.id);
         }
       }
     }

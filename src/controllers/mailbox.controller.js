@@ -17,18 +17,14 @@ const createMailbox = asyncHandler(async (req, res) => {
     );
   }
 
-  // Hash password before storing (assuming you have a hashPassword function)
   const hashedPassword = await hashPassword(password);
 
-  // Fetch domain and include DNS records verification status
   const domain = await Prisma.domain.findUnique({
     where: { id: domainId },
     include: {
       dnsRecords: true,
     },
   });
-
-  console.log(domain, domain.userId, userId);
 
   if (!domain || domain.userId !== userId) {
     return ApiError.send(res, 403, "Unauthorized domain access");
@@ -189,7 +185,6 @@ const deleteMailbox = asyncHandler(async (req, res) => {
     return ApiError.send(res, 403, "Unauthorized to delete mailbox.");
   }
 
-  // Delete mailbox (relations cascade in schema)
   await Prisma.mailbox.delete({ where: { id } });
 
   return res
@@ -213,7 +208,6 @@ async function activatePendingMailboxes() {
   for (const mailbox of pendingMailboxes) {
     const domain = mailbox.domain;
 
-    // Check if domain and all DNS records are verified
     const allDnsVerified =
       domain.dnsRecords.length > 0 &&
       domain.dnsRecords.every((record) => record.isVerified === true);
@@ -224,7 +218,6 @@ async function activatePendingMailboxes() {
         where: { id: mailbox.id },
         data: { status: "ACTIVE" },
       });
-      console.log(`Mailbox ${mailbox.emailAddress} activated automatically.`);
     }
   }
 }

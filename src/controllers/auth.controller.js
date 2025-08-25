@@ -76,7 +76,6 @@ const signup = asyncHandler(async (req, res) => {
 
 const verifySignup = asyncHandler(async (req, res) => {
   const { token } = req.query;
-  console.log("token", token);
 
   if (!token) return ApiError.send(res, 400, "Token is required");
 
@@ -86,7 +85,6 @@ const verifySignup = asyncHandler(async (req, res) => {
   } catch (err) {
     return ApiError.send(res, 401, "Invalid or expired token");
   }
-  console.log("payload", payload);
 
   const { name, email, phone, password, termsAndConditions } = payload;
 
@@ -110,8 +108,6 @@ const verifySignup = asyncHandler(async (req, res) => {
     select: { id: true, name: true, email: true, role: true, createdAt: true },
   });
 
-  console.log("user created", user);
-
   return res
     .status(201)
     .json(new ApiResponse(201, "Account verified and user created", { user }));
@@ -120,8 +116,6 @@ const verifySignup = asyncHandler(async (req, res) => {
 // login
 const login = asyncHandler(async (req, res) => {
   const { emailOrPhone, password } = req.body;
-  console.log("LOGIN BODY:", req.body);
-
   if (!emailOrPhone || !password) {
     return ApiError.send(res, 400, "Email/Phone and password are required");
   }
@@ -140,7 +134,7 @@ const login = asyncHandler(async (req, res) => {
     },
   });
 
-  // ✅ If user not found in User table → check Mailbox (USER role)
+  //
   if (!user) {
     const mailbox = await Prisma.mailbox.findFirst({
       where: { emailAddress: emailOrPhone },
@@ -193,13 +187,11 @@ const login = asyncHandler(async (req, res) => {
       );
   }
 
-  // ✅ If User exists (Admin / Super Admin)
   const isPasswordValid = await comparePassword(password, user.password);
   if (!isPasswordValid) {
     return ApiError.send(res, 401, "Invalid credentials");
   }
 
-  // Ensure role is either ADMIN or SUPER_ADMIN
   let userRole = "ADMIN";
   if (user.role === "SUPER_ADMIN") {
     userRole = "SUPER_ADMIN";
@@ -383,9 +375,7 @@ const updateProfile = asyncHandler(async (req, res) => {
 // get current user
 const getCurrentUser = asyncHandler(async (req, res) => {
   const userId = req.user?.id;
-  console.log("userId", userId);
   const mailboxId = req.mailbox?.id;
-  console.log("mailboxId", mailboxId);
 
   if (!userId && !mailboxId)
     return ApiError.send(res, 401, "Not authenticated");
@@ -421,9 +411,6 @@ const getCurrentUser = asyncHandler(async (req, res) => {
       ...mailboxSafe,
       role: "USER",
     };
-
-    console.log("mailboxResponse", mailboxResponse);
-
     return res
       .status(200)
       .json(new ApiResponse(200, "OK", { user: mailboxResponse }));
@@ -499,8 +486,6 @@ const forgotPassword = asyncHandler(async (req, res) => {
 
   // TODO: send email with link in real app
   const resetUrl = `${process.env.FRONTEND_URL || "http://localhost:3000"}/reset-password?token=${token}`;
-  console.log("Password reset link (send via email):", resetUrl);
-
   return res.status(200).json(
     new ApiResponse(200, "Password reset link generated (check logs)", {
       resetUrl,
@@ -611,7 +596,7 @@ export const toggleAdminStatus = asyncHandler(async (req, res) => {
     .json(
       new ApiResponse(
         200,
-        `Admin status toggled to ${updated.isActive ? "Active ✅" : "Inactive ❌"}`,
+        `Admin status toggled to ${updated.isActive ? "Active" : "Inactive"}`,
         updated
       )
     );

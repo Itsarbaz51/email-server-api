@@ -77,11 +77,10 @@ export const addDomain = asyncHandler(async (req, res) => {
   );
 });
 
-// Yeh aapka verifyDomain function ho sakta hai thoda modify karke
+// Auto verify domains cron job
 export async function autoVerifyDomains() {
   console.log("🔄 Running auto domain verification job...");
 
-  // Sare domains fetch karo jo VERIFIED nahi hai
   const domains = await Prisma.domain.findMany({
     where: { isVerified: false },
     include: { dnsRecords: true },
@@ -109,16 +108,13 @@ export async function autoVerifyDomains() {
           status: allValid ? "VERIFIED" : "PENDING",
         },
       });
-
-      console.log(
-        `✅ Domain ${domain.name} verification status: ${allValid ? "VERIFIED" : "PENDING"}`
-      );
     } catch (err) {
       console.error(`❌ Error verifying domain ${domain.name}:`, err.message);
     }
   }
 }
 
+// get all domains for a user
 export const getDomains = asyncHandler(async (req, res) => {
   const userId = req.user?.id;
 
@@ -144,8 +140,6 @@ export const getDomains = asyncHandler(async (req, res) => {
 
 // delete domain
 export const deleteDomain = asyncHandler(async (req, res) => {
-  console.log(req.params);
-
   const name = req.params.domainName;
   const userId = req.user.id;
 
@@ -159,7 +153,6 @@ export const deleteDomain = asyncHandler(async (req, res) => {
   if (!domain) return ApiError.send(res, 404, "Domain not found");
 
   try {
-    // 1️⃣ Delete domain from SendGrid
     if (domain.sendgridId) {
       await axios.delete(
         `https://api.sendgrid.com/v3/whitelabel/domains/${domain.sendgridId}`,
@@ -170,7 +163,6 @@ export const deleteDomain = asyncHandler(async (req, res) => {
         }
       );
     } else {
-      // fallback: find domain by name if id not stored
       const resp = await axios.get(
         `https://api.sendgrid.com/v3/whitelabel/domains`,
         {
@@ -194,15 +186,12 @@ export const deleteDomain = asyncHandler(async (req, res) => {
     }
   } catch (err) {
     console.error("SendGrid domain delete failed:", err.response?.data || err);
-    // Not blocking local deletion — you may choose to return error instead
   }
 
-  // 2️⃣ Delete DNS records from DB
   await Prisma.dNSRecord.deleteMany({
     where: { domainId: domain.id },
   });
 
-  // 3️⃣ Delete domain from DB
   await Prisma.domain.delete({
     where: { id: domain.id },
   });
@@ -212,27 +201,23 @@ export const deleteDomain = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Domain deleted successfully"));
 });
 
-// DNS record verification helper (fixed)
+// DNS record verification helper
 async function verifyDnsRecord(record, domainName) {
   try {
-    if (record.recordType === "MX") {
-      console.log(record);
-      console.log(`Verifying MX record for ${record.recordName}...`);
+    const verifyBySendGrid = validateDomain(record.domainId);
+    if (verifyBySendGrid) return true;
 
-      // MX records hamesha domain ke liye resolve karenge
+    if (record.recordType === "MX") {
       const mxRecords = await dns.resolveMx(domainName);
-      console.log(`MX Records for ${domainName}:`, mxRecords);
 
       return mxRecords.some(
         (mx) => mx.exchange.toLowerCase() === record.recordValue.toLowerCase()
       );
     }
 
-    // TXT, CNAME, A, etc.
     const lookupName =
       record.recordName === "@" ? domainName : record.recordName;
     const result = await dns.resolve(lookupName, record.recordType);
-    console.log(`DNS Records for ${lookupName}:`, result);
 
     if (record.recordType === "TXT") {
       const flattened = result
@@ -286,12 +271,16 @@ export const allDomains = asyncHandler(async (req, res) => {
     return ApiError.send(res, 401, "Unauthorized user");
   }
   if (req.user.role !== "SUPER_ADMIN") {
-    return ApiError.send(res, 403, "Forbidden: Only superadmin can access this");
+    return ApiError.send(
+      res,
+      403,
+      "Forbidden: Only superadmin can access this"
+    );
   }
 
   const domains = await Prisma.domain.findMany({
     orderBy: { createdAt: "desc" },
-    include: { mailboxes: true }
+    include: { mailboxes: true },
   });
 
   return res

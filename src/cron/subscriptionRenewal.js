@@ -1,9 +1,10 @@
 import cron from "node-cron";
 import Prisma from "../db/db.js";
 import { generateInvoiceId } from "../utils/lib.js";
+import { ApiError } from "../utils/ApiError.js";
 
 cron.schedule("0 * * * *", async () => {
-  console.log("⏰ Cron started - Checking subscriptions...");
+  console.log(" Cron started - Checking subscriptions...");
 
   try {
     const today = new Date();
@@ -22,10 +23,10 @@ cron.schedule("0 * * * *", async () => {
       data: { paymentStatus: "PENDING" },
     });
 
-    if (expiringSubs.length === 0) {
-      console.log("✅ No subscriptions expiring today.");
-      return;
-    }
+    // if (expiringSubs.length === 0) {
+    //   console.log(" No subscriptions expiring today.");
+    //   return;
+    // }
 
     for (const sub of expiringSubs) {
       try {
@@ -58,13 +59,9 @@ cron.schedule("0 * * * *", async () => {
             endDate: nextEndDate,
           },
         });
-
-        console.log(
-          `📄 Invoice #${invoice.invoiceId} generated & subscription renewed for user: ${sub.userId}`
-        );
       } catch (err) {
         console.error(
-          `❌ Failed to process subscription ${sub.id} (user ${sub.userId}):`,
+          ` Failed to process subscription ${sub.id} (user ${sub.userId}):`,
           err.message
         );
       }

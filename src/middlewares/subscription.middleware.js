@@ -127,8 +127,6 @@ export const verifySubscription = (action) =>
         );
       }
     }
-
-    // ✅ All checks passed
     return next();
   });
 

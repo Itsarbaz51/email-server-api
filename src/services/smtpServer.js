@@ -25,7 +25,7 @@ export const incomingServer = new SMTPServer({
   size: MAX_EMAIL_SIZE,
 
   async onConnect(session, callback) {
-    console.log("📩 SMTP connected from", session.remoteAddress);
+    // console.log("📩 SMTP connected from", session.remoteAddress);
     return callback();
   },
 

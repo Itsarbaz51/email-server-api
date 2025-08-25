@@ -56,7 +56,6 @@ export const sendEmail = [
         contentType: "text/html",
       });
     } catch (err) {
-      console.error("S3 upload (body) failed:", err);
       return ApiError.send(res, 500, "Failed to store email body");
     }
 
@@ -73,8 +72,8 @@ export const sendEmail = [
             contentType: file.mimetype,
           });
           attachmentRecords.push({
-            mailboxId: fromMailbox.id, // ✅ added
-            userId: fromMailbox.user.id, // ✅ added
+            mailboxId: fromMailbox.id,
+            userId: fromMailbox.user.id,
             fileName: file.originalname,
             fileSize: file.size,
             mimeType: file.mimetype,
@@ -110,8 +109,6 @@ export const sendEmail = [
     } catch (err) {
       console.error("sendViaSendGrid error:", err);
 
-      console.log("fromMailbox", fromMailbox);
-
       // Store FAILED email
       await Prisma.sentEmail.create({
         data: {
@@ -127,8 +124,6 @@ export const sendEmail = [
 
       return ApiError.send(res, 500, "Failed to send email");
     }
-
-    console.log(fromMailbox);
 
     // Store SENT email
     const sent = await Prisma.sentEmail.create({
@@ -213,7 +208,6 @@ export const getSingleEmail = asyncHandler(async (req, res) => {
     });
 
     if (!existsMail) {
-      console.log("Email not found or already unread.");
       return ApiError.send(res, 404, "Message not found");
     }
 
@@ -225,8 +219,6 @@ export const getSingleEmail = asyncHandler(async (req, res) => {
         attachments: true,
       },
     });
-
-    console.log("Updated message:", message);
   } else {
     return ApiError.send(res, 400, "Invalid type param");
   }
@@ -784,8 +776,6 @@ export const getEmailBody = asyncHandler(async (req, res) => {
       300
     );
 
-    console.log(emailRecord);
-
     let attachments = [];
     if (emailRecord.attachments?.length) {
       attachments = await Promise.all(
@@ -805,7 +795,6 @@ export const getEmailBody = asyncHandler(async (req, res) => {
         })
       );
     }
-    console.log(attachments);
 
     return res.status(200).json(
       new ApiResponse(200, "Email body URL generated", {
