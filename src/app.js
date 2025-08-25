@@ -29,6 +29,7 @@ import mailboxRoute from "./routes/mailbox.route.js";
 import mailRoute from "./routes/mail.route.js";
 import subscriptionRoute from "./routes/subscription.route.js";
 import dashboardRoute from "./routes/dashboard.route.js";
+import homeRoute from "./routes/home.route.js";
 
 app.use("/api/auth", authRoutes);
 app.use("/api/domain", domainRoutes);
@@ -36,6 +37,7 @@ app.use("/api/mailboxes", mailboxRoute);
 app.use("/api/mail", mailRoute);
 app.use("/api/subscription", subscriptionRoute);
 app.use("/api/dashboard", dashboardRoute);
+app.use("/api/home", homeRoute);
 
 app.get("/", (req, res) => {
   res.send("Hello from root!");

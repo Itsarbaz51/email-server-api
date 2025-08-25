@@ -217,7 +217,6 @@ export const getSingleEmail = asyncHandler(async (req, res) => {
       return ApiError.send(res, 404, "Message not found");
     }
 
-    // ❌ FIXED: Don't redeclare 'message' — just assign to the outer one
     message = await Prisma.receivedEmail.update({
       where: { id: existsMail.id },
       data: { isRead: false },
