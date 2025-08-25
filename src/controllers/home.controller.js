@@ -28,6 +28,11 @@ export const createTestimonial = asyncHandler(async (req, res) => {
 });
 
 export const getAllTestimonial = asyncHandler(async (req, res) => {
+  const userrole = req.user;
+
+  if (userrole.role !== "SUPER_ADMIN") {
+    return ApiError.send(res, 403, "Access denied. Super Admins only.");
+  }
   const allTestimonial = await Prisma.testimonial.findMany({
     orderBy: { createdAt: "desc" },
   });
@@ -69,8 +74,6 @@ export const createContactMessage = asyncHandler(async (req, res) => {
 
 export const getAllContactMessage = asyncHandler(async (req, res) => {
   const userrole = req.user;
-  console.log("userrole", userrole);
-  
 
   if (userrole.role !== "SUPER_ADMIN") {
     return ApiError.send(res, 403, "Access denied. Super Admins only.");
